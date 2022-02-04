@@ -11,7 +11,7 @@ The ID will only utilize the final 7-bits of the IDs 11-bits. The message data l
 
 **ID**: 7 bits
 | Bits | 0                    | 1                         | 2                             | 3                | 4             | 5             | 6             |
-| :--: | :------------------: | :-----------------------: | :---------------------------: | :------  ------: | :-----------: | :-----------: | :-----------: |
+| :--: | :------------------: | :-----------------------: | :---------------------------: | :--------------: | :-----------: | :-----------: | :-----------: |
 | `0`  | message from *AI*    | message from controllers  | stop\stopped message          | **NOT** goal rod | **NOT** 2 rod | **NOT** 5 rod | **NOT** 3 rod |
 | `1`  | message from *table* | message from player poles | **NON** stop\stopped message  | goal rod         | 2 rod         | 5 rod         | 3 rod         |
 
