@@ -5,13 +5,13 @@
 #define ANALOG 4
 #define CORE 1
 
-const float stepPerRevolution = 100; //according to the 1.80 degree step angle from data sheet
-const int maxRPM = 2000; //set by library as max speed
+const float stepPerRevolution = 1600; //according to the 1.80 degree step angle from data sheet
+const int maxRPS = 90; //89 is max speed motor can hold
 const int maxAnalog = 2048*2;
 const int maxACC = 100;
 const int GOAL = 10000;
 
-int RPM;
+int RPS;
 
 ESP_FlexyStepper stepper_1;
 
@@ -26,13 +26,13 @@ void setup() {
 }
 
 void loop() {
-  RPM = analogRead(ANALOG)*maxRPM/maxAnalog;
-  stepper_1.setSpeedInRevolutionsPerSecond(RPM);
-  Serial.print("RPM: ");
-  Serial.print(RPM);
+  RPS = analogRead(ANALOG)*maxRPS/maxAnalog;
+  stepper_1.setSpeedInRevolutionsPerSecond(RPS);
+  Serial.print("RPS: ");
+  Serial.print(RPS);
   Serial.print(" SPEED: ");
   Serial.println(stepper_1.getCurrentVelocityInRevolutionsPerSecond());
-  if (RPM == 0) {
+  if (RPS == 0) {
     stepper_1.setTargetPositionToStop();
   } else {
     stepper_1.setTargetPositionRelativeInRevolutions(GOAL);
