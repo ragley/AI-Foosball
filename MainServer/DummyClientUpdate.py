@@ -6,16 +6,15 @@ HOST = '127.0.0.1'  # The server's hostname or IP address
 PORT = 5000       # The port used by the server
 
 try:
-    #with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        #s.connect((HOST, PORT))
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((HOST, PORT))
 
     while True:
-        message = Message(True, 1)
-        sock.sendall(message.encode_message())
-        print(message.to_string())
+        message = Message("POST")
+        message.update_message_random_values()
+        sock.sendall(message.encode_to_send(True))
+        print(message.data)
+        
 except KeyboardInterrupt:
     print("caught keyboard interrupt, exiting")
 finally:

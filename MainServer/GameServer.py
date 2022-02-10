@@ -1,5 +1,3 @@
-from asyncio.windows_events import NULL
-import sys
 import socket
 import selectors
 import types
@@ -12,7 +10,7 @@ game_state = GameState()
 def accept_wrapper(sock):
     conn, addr = sock.accept()  # Should be ready to read
     print("accepted connection from", addr)
-    conn.setblocking(True)
+    conn.setblocking(False)
     data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
     sel.register(conn, events, data=data)
@@ -22,12 +20,13 @@ def service_connection(key, mask):
     sock = key.fileobj
     data = key.data
     if mask & selectors.EVENT_READ:
-        recv_data = sock.recv(1024)  # Should be ready to read
+        recv_data = sock.recv(4)  # Should be ready to read
         if recv_data:
-            message = Message()
-            message.decode_header(recv_data[:5])
-            message.data_bytes = recv_data[5:]
-            data.outb = handle_message(message)
+            data_size = int.from_bytes(recv_data, byteorder="big")
+            recv_data = sock.recv(data_size)
+            received = Message("RECEIVED")
+            received.decode_from_receive(recv_data)
+            data.outb = handle_message(received.data)
         else:
             print("closing connection to", data.addr)
             sel.unregister(sock)
@@ -38,12 +37,25 @@ def service_connection(key, mask):
             sent = sock.send(data.outb)  # Should be ready to write
             data.outb = data.outb[sent:]
 
-def handle_message(message):
-    if message.action:
-        game_state.update_rods(message.decode_data())
-        return NULL
+def handle_message(data):
+    if data["action"] == "POST":
+        game_state.update_game_data(data)
+        return ""
+    elif data["action"] == "GET":
+        return_data = game_state.get_game_data(data)
+        sending = Message()
+        sending.data = return_data
+        return sending.encode_to_send(False)
+    elif data["action"] == "DUMP":
+        return_data = game_state.get_all_data()
+        sending = Message()
+        sending.data = return_data
+        return sending.encode_to_send(False)
     else:
-        return message.encode_message()
+        sending = Message()
+        sending.data = {"error":"Action not Understood"}
+        return sending.encode_to_send(False)
+        
     
 
 host = "127.0.0.1"
