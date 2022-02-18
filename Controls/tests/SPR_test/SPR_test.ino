@@ -5,36 +5,37 @@
 #define ANALOG 4
 #define CORE 1
 
-const float stepPerRevolution = 1600; //according to the 1.80 degree step angle from data sheet and 400 on the driver
-const int maxRPS = 89;
-const int maxACC = 3000;
 const int maxAnalog = 2048*2;
-const int REVOLUTIONS = 10;
+const int REVOLUTIONS = 1;
+const int maxSPR = 2000;
 
-int RPS = maxRPS;
+int RPS = 1;
+int ACC = 1;
 int target = REVOLUTIONS;
 int direction = 1;
 double timer = millis();
 
-int ACC;
+int SPR;
 
 ESP_FlexyStepper stepper_1;
 
 void setup() {
   Serial.begin(115200);
   stepper_1.connectToPins(PULSE_1, DIRECTION_1);
-  stepper_1.setStepsPerRevolution(stepPerRevolution);
+  stepper_1.setStepsPerRevolution(1);
+  stepper_1.setAccelerationInRevolutionsPerSecondPerSecond(ACC);
+  stepper_1.setDecelerationInRevolutionsPerSecondPerSecond(ACC);
   stepper_1.setSpeedInRevolutionsPerSecond(RPS);
   stepper_1.setTargetPositionToStop();
   stepper_1.startAsService(CORE);
+
 }
 
 void loop() {
-  ACC = (analogRead(ANALOG)*maxACC/maxAnalog) + 1;
-  stepper_1.setAccelerationInRevolutionsPerSecondPerSecond(ACC);
-  stepper_1.setDecelerationInRevolutionsPerSecondPerSecond(ACC);
-  Serial.print("ACC: ");
-  Serial.print(ACC);
+  SPR = (analogRead(ANALOG)*maxSPR/maxAnalog) + 1;
+  stepper_1.setStepsPerRevolution(SPR);
+  Serial.print("SPR: ");
+  Serial.print(SPR);
   Serial.print(" SPEED: ");
   Serial.print(stepper_1.getCurrentVelocityInRevolutionsPerSecond());
   Serial.print(" REV: ");
