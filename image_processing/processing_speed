@@ -1,0 +1,30 @@
+Note that these values do not include CUDA acceleration:
+
+Ball Location (x, y): 267.43804931640625, 229.93362426757812
+Processing Time (ms): 8.318277
+Ball Location (x, y): 266.5754699707031, 236.632080078125
+Processing Time (ms): 7.2281569999999995
+Ball Location (x, y): 265.5, 239.0
+Processing Time (ms): 9.601327999999999
+Ball Location (x, y): 263.0, 240.0
+Processing Time (ms): 8.772810000000002
+Ball Location (x, y): 260.5, 243.0
+Processing Time (ms): 10.479319
+Ball Location (x, y): 256.5, 249.0
+Processing Time (ms): 6.837273
+Ball Location (x, y): 254.0, 252.0
+Processing Time (ms): 8.123588
+Ball Location (x, y): 250.5, 254.0
+Processing Time (ms): 8.506279000000001
+Ball Location (x, y): 246.5, 257.0
+Processing Time (ms): 10.068245
+Ball Location (x, y): 241.5, 260.0
+Processing Time (ms): 7.88205
+Ball Location (x, y): 238.5, 262.5
+Processing Time (ms): 7.321022
+Ball Location (x, y): 236.0, 262.5
+Processing Time (ms): 9.962451000000001
+
+
+After CUDA acceleration:
+

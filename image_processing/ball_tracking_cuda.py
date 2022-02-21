@@ -28,6 +28,9 @@ def ball_tracking():
 	vs = VideoStream(0)
 	vs.start()
 
+	# create frame for the GPU
+	gpu_frame = cv2.cuda_GpuMat()
+
 	# otherwise, grab a reference to the video file
 	# allow the camera or video file to "warm up"
 	time.sleep(2.0)
@@ -39,16 +42,23 @@ def ball_tracking():
 
 		# grab the current frame
 		frame = vs.read()
+		#upload frame to GPU
+		gpu_frame.upload(frame)
 		
 		# handle the frame from VideoCapture or VideoStream
 		# frame = frame[1] if args.get("video", False) else frame
 		
 		# resize the frame, blur it, and convert it to the HSV
 		# color space
-		frame = imutils.resize(frame, width=600)
-		blurred = cv2.GaussianBlur(frame, (11, 11), 0)
-		hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+		resized = cv2.cuda.resize(gpu_frame, width=600)
+		blurred = cv2.cuda.GaussianBlur(gpu_frame, (11, 11), 0)
+		hsv = cv2.cuda.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 		
+		# download the things from the GPU from GPU
+		resized = resized.download()
+		blurred = blurred.download()
+		hsv = hsv.download()
+
 		# construct a mask for the color "green", then perform
 		# a series of dilations and erosions to remove any small
 		# blobs left in the mask
@@ -58,8 +68,7 @@ def ball_tracking():
 		
 		# find contours in the mask and initialize the current
 		# (x, y) center of the ball
-		cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
-			cv2.CHAIN_APPROX_SIMPLE)
+		cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 		cnts = imutils.grab_contours(cnts)
 		center = None
 		
