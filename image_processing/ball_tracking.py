@@ -9,6 +9,11 @@ import cv2
 import imutils # pip install --upgrade imutils
 import time
 
+def calculateVelocity(x, y, previous_x, previous_y, t1, t2):
+	Vx = (x - previous_x)/(t1-t2)
+	Vy = (y - previous_y)/(t1-t2)
+	return (Vx, Vy)
+
 def ball_tracking():
 
 	# construct the argument parse and parse the arguments
@@ -25,7 +30,7 @@ def ball_tracking():
 
 	# if a video path was not supplied, grab the reference
 	# to the webcam
-	vs = VideoStream(0)
+	vs = VideoStream(2+cv2.CAP_DSHOW)
 	vs.start()
 
 	# otherwise, grab a reference to the video file
@@ -33,6 +38,10 @@ def ball_tracking():
 	time.sleep(2.0)
 
 	# begin processing the image. 
+	# reset/define important variables
+	previous_x = 0
+	previous_y = 0
+	t2=0
 	while True:
 		# performance testing
 		time1 = cv2.getTickCount()
@@ -45,9 +54,9 @@ def ball_tracking():
 		
 		# resize the frame, blur it, and convert it to the HSV
 		# color space
-		frame = imutils.resize(frame, width=600)
-		blurred = cv2.GaussianBlur(frame, (11, 11), 0)
-		hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+		# frame = imutils.resize(frame, width=600)
+		# blurred = cv2.GaussianBlur(frame, (11, 11), 0)
+		hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 		
 		# construct a mask for the color "green", then perform
 		# a series of dilations and erosions to remove any small
@@ -62,19 +71,33 @@ def ball_tracking():
 			cv2.CHAIN_APPROX_SIMPLE)
 		cnts = imutils.grab_contours(cnts)
 		center = None
+
+		
 		
 		# only proceed if at least one contour was found
+		# meaning the ball was found...
 		if len(cnts) > 0:
 			# find the largest contour in the mask, then use
 			# it to compute the minimum enclosing circle and
 			# centroid
 			c = max(cnts, key=cv2.contourArea)
 			((x, y), radius) = cv2.minEnclosingCircle(c)
+			t1 = cv2.getTickCount()/cv2.getTickFrequency()
 			M = cv2.moments(c)
 			center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
 
+			# calculate velocity
+			# TODO: A normalization function will be needed for ACTUALL Vx/Vy
+			if not t2 == 0:
+				(Vx, Vy) = calculateVelocity(x, y, previous_x, previous_y, t1, t2)
+
 			# print x, y coord to the terminal
 			print(f"Ball Location (x, y): {x}, {y}")
+			if not t2 == 0:
+				print(f" Ball Speed (Vx, Vy): {Vx}, {Vy}")
+			previous_x = x
+			previous_y = y
+			t2 = t1
 
 			# only proceed if the radius meets a minimum size
 			if radius > 5:
@@ -86,7 +109,10 @@ def ball_tracking():
 		
 		# update the points queue
 		pts.appendleft(center)
-		
+
+		# performance check
+		time2 = cv2.getTickCount()
+
 		# show the frame to our screen
 		cv2.imshow("Frame", frame)
 		key = cv2.waitKey(1) & 0xFF
@@ -94,16 +120,10 @@ def ball_tracking():
 		if key == ord("q"):
 			break
 		
-		# performance check
-		time2 = cv2.getTickCount()
-		print(f"Processing Time (ms): {((time2-time1)/cv2.getTickFrequency())*1000}") 
-	# if we are not using a video file, stop the camera video stream
-	if not args.get("video", False):
-		vs.stop()
-	# otherwise, release the camera
-	else:
-		vs.release()
-	# close all windows
+		print(f" Processing Time (ms): {((time2-time1)/cv2.getTickFrequency())*1000}") 
+	
+	# stop camera
+	vs.stop()
 
 ball_tracking()
 cv2.destroyAllWindows()
