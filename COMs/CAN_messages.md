@@ -10,23 +10,29 @@ Messages from the *AI* will always have the highest priority so the first bit of
 The ID will only utilize the final 7-bits of the IDs 11-bits. The message data length is always 8 bytes. All bit data is using **Big-endian** meaning the bits on the left will be sent or received before the bits on the right.
 
 **ID**: 7 bits
-| Bits | 0                    | 1                         | 2                             | 3                | 4             | 5             | 6             |
-| :--: | :------------------: | :-----------------------: | :---------------------------: | :--------------: | :-----------: | :-----------: | :-----------: |
-| `0`  | message from *AI*    | message from controllers  | stop\stopped message          | **NOT** goal rod | **NOT** 2 rod | **NOT** 5 rod | **NOT** 3 rod |
-| `1`  | message from *table* | message from player poles | **NON** stop\stopped message  | goal rod         | 2 rod         | 5 rod         | 3 rod         |
+
+| **Bits**  | **0-1**                                                           | **2**                         | **3**            | **4**         | **5**         | **6**         |
+| :-------: | :---------------------------------------------------------------: | :---------------------------: | :--------------: | :-----------: | :-----------: | :-----------: |
+| `0`       | (`00`) message from *AI*         : (`01`) Zero command            | stop\stopped message          | **NOT** goal rod | **NOT** 2 rod | **NOT** 5 rod | **NOT** 3 rod |
+| `1`       | (`11`) message from player poles : (`10`) message from controllers| **NON** stop\stopped message  | goal rod         | 2 rod         | 5 rod         | 3 rod         |
 
 **DATA**: 8 bytes
-| Bytes | 0-3               | 4-8          |
-| :---: | :---------------: | :----------: |
-| `X`   | Displacement Data | Angular Data |
+
+| **Bytes** | **0-3**           | **4-8**      |
+| :-------: | :---------------: | :----------: |
+| `X`       | Displacement Data | Angular Data |
 
 
 |    ID     | Description                                      |
 | :-------: | :----------------------------------------------: |
-|`0b0XXXXX1`| Message from *AI* to *controller 3 rod* **1**    |
-|`0b0XXXX1X`| Message from *AI* to *controller 5 rod* **2**    |
-|`0b0XXX1XX`| Message from *AI* to *controller 2 rod* **3**    |
-|`0b0XX1XXX`| Message from *AI* to *controller goal rod* **4** |
+|`0b00XXXX1`| Message from *AI* to *controller 3 rod* **1**    |
+|`0b00XXX1X`| Message from *AI* to *controller 5 rod* **2**    |
+|`0b00XX1XX`| Message from *AI* to *controller 2 rod* **3**    |
+|`0b00X1XXX`| Message from *AI* to *controller goal rod* **4** |
+|`0b01XXXX1`| Zero Message to *controller 3 rod* **1**         |
+|`0b01XXX1X`| Zero Message to *controller 5 rod* **2**         |
+|`0b01XX1XX`| Zero Message to *controller 2 rod* **3**         |
+|`0b01X1XXX`| Zero Message to *controller goal rod* **4** |
 |`0b10XXXX1`| Message from *controller 3 rod* to *AI*          |
 |`0b10XXX1X`| Message from *controller 5 rod* to *AI*          |
 |`0b10XX1XX`| Message from *controller 2 rod* to *AI*          |
@@ -37,11 +43,11 @@ The ID will only utilize the final 7-bits of the IDs 11-bits. The message data l
 |`0b11X1XXX`| Message from *player goal rod* **4** to *AI*     |
 
 
-|    ID    | Displacement Data Length | Rotational Data Length | Description                            |
-| :------: | :----------------------: | :---------------------:| :------------------------------------: |
-|`0b0X0XXXX`| **X**                   | **X**                  | **Stop** command from *AI*             |
-|`0b100XXXX`| **X**                   | **X**                  | **Stopped** message from *controller*  |
-|`0b110XXXX`| **X**                   | **X**                  | **Stopped** message from *player*      |
-|`0b001XXXX`| **4 Bytes**             | **4 Bytes**            | **Move** command from *AI*             |
-|`0b101XXXX`| **4 Bytes**             | **4 Bytes**            | **Location** message from *controller* |
-|`0b111XXXX`| **4 Bytes**             | **4 Bytes**            | **Location** message from *player*     |
+|    ID     | Displacement Data Length | Rotational Data Length | Description                            |
+| :-------: | :----------------------: | :---------------------:| :------------------------------------: |
+|`0b0X0XXXX`| **X**                    | **X**                  | **Stop** command from *AI*             |
+|`0b100XXXX`| **X**                    | **X**                  | **Stopped** message from *controller*  |
+|`0b110XXXX`| **X**                    | **X**                  | **Stopped** message from *player*      |
+|`0b001XXXX`| **4 Bytes**              | **4 Bytes**            | **Move** command from *AI*             |
+|`0b101XXXX`| **4 Bytes**              | **4 Bytes**            | **Location** message from *controller* |
+|`0b111XXXX`| **4 Bytes**              | **4 Bytes**            | **Location** message from *player*     |
