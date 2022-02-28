@@ -1,65 +1,53 @@
 #include <CAN.h>
-#include <PID_v1.h>
-#include "driver/ledc.h"
-
-/* The next thing that needs to be done is to write
-   the algorithm that will take in the physical values
-   and then give the distance to the closest player */
+#include <ESP_FlexyStepper.h>
 
 const bool SERIAL_ON = true;
 
 #define ID_2 23
 #define ID_1 22
-#define DISPLACEMENT_DRIVER_1 21
-#define DISPLACEMENT_DRIVER_2 19
-#define DISPLACEMENT_DRIVER_E 18
-#define ROTATION_DRIVER_1  5
-#define ROTATION_DRIVER_2 17
-#define ROTATION_DRIVER_E 16
-#define ENCODER_2  4
-#define ENCODER_1  2
+#define ROTATION_DRIVER_PULSE 21
+#define ROTATION_DRIVER_DIR 19
+#define ROTATION_DRIVER_ZERO 18
+#define TRANSLATION_DRIVER_PULSE 5
+#define TRANSLATION_DRIVER_DIR 17
+#define TRANSLATION_DRIVER_ZERO 16
+#define ROTATION_ENCODER  4
+#define TRANSLATION_ENCODER  2
 #define TXD_CAN 15
 #define RXR_CAN 13
+#define ENABLE 34
 
 #define ALL_GOOD_LED 2
 
-#define PWM_DISPLACEMENT_CH 0
-#define PWM_ROTATION_CH 1
-
+#define STEPPER_CORE 0
 #define CONTROL_CORE 0
 #define COM_CORE 1
 
 TaskHandle_t Controller;
 TaskHandle_t Communication;
 
+ESP_FlexyStepper Translation_Stepper;
+ESP_FlexyStepper Rotation_Stepper;
+
+const double maxTranslations = [1,1,1,1];
+
+const double maxSpeedTranslation = 0; //mm per second
+const double maxSpeedRotation = 0; //rotations per second
+const double maxAccelerationTranslation = 0; // mm per second per second
+const double maxAccelerationRotation = 0; // rotations per second per second
+const double homeSpeedTranslation =  maxSpeedTranslation / 10;
+const double homeSpeedRotation =  maxSpeedRotation / 10;
+const signed char homeDirTranslation = 1;
+const signed char homeDirRotation = 1;
+
 const int COM_DELAY = 2000; //in ms
 const int MAX_COM_DELAY = COM_DELAY * 3;
 
-const int PWM_FREQ = 0;
+const double STEP_PULSE_TRANSLATION_CONVERSION = 1/0.474; //pulse per mm
+const double STEP_PULSE_ROTATION_CONVERSION = 200; //pulse per rotation
 
-const int PWM_RESOLUTION = 8;
-const int PWM_DUTY_CYCLE = (2^PWM_RESOLUTION)/2;
-
-const ledc_mode_t SPEED_MODE = LEDC_HIGH_SPEED_MODE;
-
-const ledc_timer_t DISPLACEMENT_TIMER = LEDC_TIMER_0;
-const ledc_timer_t ROTATION_TIMER = LEDC_TIMER_1;
-
-const int PID_MAX = 255;
-const int PID_MIN = -255;
-
-const double PID_PERIOD = 0.1; //in ms
-
-const double DISPLACEMENT_Kp = 1;
-const double DISPLACEMENT_Ki = 1;
-const double DISPLACEMENT_Kd = 1;
-
-const double ROTATION_Kp = 1;
-const double ROTATION_Ki = 1;
-const double ROTATION_Kd = 1;
-
-const double PULSE_DISPLACEMENT_CONVERSION = 1;
-const double PULSE_ROTATION_CONVERSION = 1;
+const double ENCODER_PULSE_TRANSLATION_CONVERSION = 0;
+const double ENCODER_PULSE_ROTATION_CONVERSION = 0;
 
 void SHUTDOWN();
 void START();
@@ -72,15 +60,15 @@ void IRAM_ATTR Increment_Rotation();
 
 int ID = 0;
 
-double displacementMeasured = 0;
+double translationMeasured = 0;
 double rotationMeasured = 0;
-double displacementDesired = 0;
+double translationDesired = 0;
 double rotationDesired = 0;
 
 union {
     byte bytes[sizeof(float)];
     float value = 0;
-} displacementMeasured_f;
+} translationMeasured_f;
 
 union {
     byte bytes[sizeof(float)];
@@ -90,36 +78,17 @@ union {
 union {
     byte bytes[sizeof(float)];
     float value = 0;
-} displacementDesired_f;
+} translationDesired_f;
 
 union {
     byte bytes[sizeof(float)];
     float value = 0;
 } rotationDesired_f;
 
-double displacementPWMFrequency = 0;
-double rotationPWMFrequency = 0;
-
 unsigned long messageTime = 0;
 bool RUNNING = true;
 
 bool E_STOP = false;
-
-PID displacementPID(&displacementMeasured,
-                    &displacementPWMFrequency, 
-                    &displacementDesired, 
-                    DISPLACEMENT_Kp,
-                    DISPLACEMENT_Ki,
-                    DISPLACEMENT_Kd,
-                    DIRECT);
-
-PID rotationPID(&rotationMeasured,
-                    &rotationPWMFrequency, 
-                    &rotationDesired, 
-                    ROTATION_Kp, 
-                    ROTATION_Ki, 
-                    ROTATION_Kd, 
-                    DIRECT);
 
 void setup() {
     if (SERIAL_ON) {
@@ -133,20 +102,23 @@ void setup() {
 
     ID = digitalRead(ID_2)*2 + digitalRead(ID_1);
 
-    pinMode(DISPLACEMENT_DRIVER_1, OUTPUT);
-    pinMode(DISPLACEMENT_DRIVER_2, OUTPUT);
-    ledcSetup(PWM_DISPLACEMENT_CH, PWM_FREQ, PWM_RESOLUTION);
-    ledcAttachPin(DISPLACEMENT_DRIVER_E, PWM_DISPLACEMENT_CH);
-    ledc_bind_channel_timer(SPEED_MODE, PWM_DISPLACEMENT_CH, DISPLACEMENT_TIMER);
+    ESP_FlexyStepper Translation_Stepper;
+    ESP_FlexyStepper Rotation_Stepper;
 
-    pinMode(ROTATION_DRIVER_1, OUTPUT);
-    pinMode(ROTATION_DRIVER_2, OUTPUT);
-    ledcSetup(PWM_ROTATION_CH, PWM_FREQ, PWM_RESOLUTION);
-    ledcAttachPin(ROTATION_DRIVER_E, PWM_ROTATION_CH);
-    ledc_bind_channel_timer(SPEED_MODE, PWM_ROTATION_CH, ROTATION_TIMER);
+    Translation_Stepper.connectToPins(TRANSLATION_DRIVER_PULSE, TRANSLATION_DRIVER_DIR);
+    Translation_Stepper.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION);
+    Translation_Stepper.setAccelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
+    Translation_Stepper.setDecelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
+    Translation_Stepper.setSpeedInMillimetersPerSecond(maxSpeedTranslation);
 
-    attachInterrupt(ENCODER_1, Increment_Displacement, RISING);
-    attachInterrupt(ENCODER_2, Increment_Rotation, RISING);
+    Rotation_Stepper.connectToPins(ROTATION_DRIVER_PULSE, ROTATION_DRIVER_DIR);
+    Rotation_Stepper.setStepsPerMillimeter(STEP_PULSE_ROTATION_CONVERSION);
+    Rotation_Stepper.setAccelerationInMillimetersPerSecondPerSecond(maxAccelerationRotation);
+    Rotation_Stepper.setDecelerationInMillimetersPerSecondPerSecond(maxAccelerationRotation);
+    Rotation_Stepper.setSpeedInMillimetersPerSecond(maxSpeedRotation);
+
+    attachInterrupt(TRANSLATION_ENCODER, Increment_Displacement, RISING);
+    attachInterrupt(ROTATION_ENCODER, Increment_Rotation, RISING);
 
     CAN.setPins(RXR_CAN, TXD_CAN);
 
@@ -169,38 +141,39 @@ void setup() {
                             NULL,
                             COM_CORE);
 
-    //PID initialization
-    displacementPID.SetSampleTime(PID_PERIOD);
-    rotationPID.SetSampleTime(PID_PERIOD);
-    displacementPID.SetOutputLimits(PID_MIN, PID_MIN);
-    rotationPID.SetOutputLimits(PID_MIN, PID_MIN);
-
-    
-
     // start the CAN bus at 500 kbps
     if (!CAN.begin(500E3)) {
         if (SERIAL_ON) Serial.println("Starting CAN failed!");
+        digitalWrite(ALL_GOOD_LED, LOW);
         while (1);
     }
     if (SERIAL_ON) Serial.println("Starting CAN success");
     CAN.filter(0b011111, (1 << ID) + (0b100000));
     CAN.onReceive(CAN_Handler);
-
+    if ~(ZERO()){
+        digitalWrite(ALL_GOOD_LED, LOW);
+        while(1);
+    }
     messageTime = millis();
+    START();
 }
 
 void loop() {
 }
 
-void SHUTDOWN() {
-    if (RUNNING || displacementPWMFrequency != 0 || rotationPWMFrequency != 0) {
-        // Disable PID
-        displacementPID.SetMode(MANUAL);
-        rotationPID.SetMode(MANUAL);
+bool ZERO(){
+    return 
+    (Translation_Stepper.moveToHomeInMillimeters(homeDirTranslation, homeSpeedTranslation, maxTranslations[ID], TRANSLATION_DRIVER_ZERO) 
+    &&
+    Rotation_Stepper.moveToHomeInRevolutions(homeDirRotation, homeSpeedRotation, 1, ROTATION_DRIVER_ZERO));
+}
 
-        //Stop motors
-        displacementPWMFrequency = 0;
-        rotationPWMFrequency = 0;
+void SHUTDOWN() {
+    if (RUNNING) {
+        Translation_Stepper.emergencyStop(false);
+        Rotation_Stepper.emergencyStop(false);
+        Translation_Stepper.stopService();
+        Rotation_Stepper.stopService();
 
         digitalWrite(ALL_GOOD_LED, LOW);
         RUNNING = false;
@@ -211,9 +184,9 @@ void SHUTDOWN() {
 
 void START() {
     if (!RUNNING) {
-        //Activating PID
-        displacementPID.SetMode(AUTOMATIC);
-        rotationPID.SetMode(AUTOMATIC);
+        //Activating Stepper
+        Translation_Stepper.startAsService(STEPPER_CORE);
+        Rotation_Stepper.startAsService(STEPPER_CORE);
 
         digitalWrite(ALL_GOOD_LED, HIGH);
         RUNNING = true;
