@@ -38,11 +38,11 @@ def check_boundaries(value, tolerance, ranges, upper_or_lower):
 
 def onMouse(event, x, y, flags, params):
 	if event == cv2.EVENT_LBUTTONDOWN:
-		# b = frame[y, x, 0]
-		# g = frame[y, x, 1]
-		# r = frame[y, x, 2]
-		# text = str(b) + ',' + str(g) + ',' + str(r)
-		# print(f"Color: {text}") 
+		b = frame[y, x, 0]
+		g = frame[y, x, 1]
+		r = frame[y, x, 2]
+		text = str(b) + ',' + str(g) + ',' + str(r)
+		print(f"Color: {text}") 
 		pixel = frame[y,x]
 		#HUE, SATURATION, AND VALUE (BRIGHTNESS) RANGES. TOLERANCE COULD BE ADJUSTED.
 		# Set range = 0 for hue and range = 1 for saturation and brightness 
@@ -57,7 +57,7 @@ def onMouse(event, x, y, flags, params):
 		upper =  np.array([hue_upper, saturation_upper, value_upper])
 		lower =  np.array([hue_lower, saturation_lower, value_lower])
 
-		print(f"Lower: {lower}, Upper: {upper}")
+		print(f"Pixel value: ({pixel[0]}, {pixel[1]}, {pixel[2]})")
 
 # run FOREVER!!!
 frame = vs.read()
