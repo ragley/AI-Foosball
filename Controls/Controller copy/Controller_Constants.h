@@ -46,8 +46,8 @@ const double maxAccelerationTranslation = maxAccelerationRotation*mmPerRevolutio
 const double homeSpeedTranslation = maxSpeedTranslation / 10;
 const double homeSpeedRotation = maxSpeedRotation / 10;
 
-const int COM_DELAY = 10; //in ms
-const int MAX_COM_DELAY = COM_DELAY * 3;
+const int COM_DELAY = 20; //in ms
+const int MAX_COM_DELAY = COM_DELAY * 5;
 
 const double SENSOR_PULSE_TRANSLATION_CONVERSION = 0;
 const double SENSOR_PULSE_ROTATION_CONVERSION = 0;

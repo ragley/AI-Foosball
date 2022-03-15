@@ -1,7 +1,7 @@
 #include <CAN.h>
 
-#define RXR_CAN 13 //GPIO13
-#define TXD_CAN 15 //GPIO15
+#define RXR_CAN 15 //GPIO13
+#define TXD_CAN 13 //GPIO15
 
 void CAN_Handler(int packet_size);
 
@@ -23,20 +23,20 @@ void setup() {
 }
 
 void loop() {
-  // send packet: id is 11 bits, packet can contain up to 8 bytes of data
-  Serial.print("Sending packet ... ");
+  // // send packet: id is 11 bits, packet can contain up to 8 bytes of data
+  // Serial.print("Sending packet ... ");
 
-  CAN.beginPacket(0x12);
-  CAN.write('h');
-  CAN.write('e');
-  CAN.write('l');
-  CAN.write('l');
-  CAN.write('o');
-  CAN.endPacket();
+  // CAN.beginPacket(0x12);
+  // CAN.write('h');
+  // CAN.write('e');
+  // CAN.write('l');
+  // CAN.write('l');
+  // CAN.write('o');
+  // CAN.endPacket();
 
-  Serial.println("done");
+  // Serial.println("done");
 
-  delay(3000);
+  // delay(3000);
 }
 
 void CAN_Handler(int packet_size){
@@ -60,7 +60,7 @@ void CAN_Handler(int packet_size){
     Serial.println(CAN.packetDlc());
   } else {
     Serial.print(" and length ");
-    Serial.println(packetSize);
+    Serial.println(packet_size);
 
     // only print packet data for non-RTR packets
     while (CAN.available()) {

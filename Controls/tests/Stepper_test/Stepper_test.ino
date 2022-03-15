@@ -1,50 +1,76 @@
 #include <ESP_FlexyStepper.h>
 #include "Controller_Constants.h"
 
-#define CORE 1
+#define CORE 0
 
-const float stepPerRevolution = 1600; //according to the 1.80 degree step angle from data sheet and 400 on the driver
-const int maxRPS = 89;
-const int maxACC = 3000;
-const int REVOLUTIONS = 10;
-const int ACC = 200;
+const int REVOLUTIONS = 1;
 
-int RPS = maxRPS;
-int target = REVOLUTIONS;
-int direction = 1;
-double timer = millis();
+int target_ROT = REVOLUTIONS;
+int target_TRANS = REVOLUTIONS*mmPerRevolution;
+int direction_ROT = 1;
+int direction_TRANS = 1;
+double timer_ROT = millis();
+double timer_TRANS = millis();
 
 
 
-ESP_FlexyStepper stepper_1;
+ESP_FlexyStepper Rotational_Driver;
+ESP_FlexyStepper Translation_Driver;
 
 void setup() {
   Serial.begin(115200);
-  stepper_1.connectToPins(ROTATION_DRIVER_PULSE, ROTATION_DRIVER_DIR);
-  stepper_1.setStepsPerRevolution(stepPerRevolution);
-  stepper_1.setSpeedInRevolutionsPerSecond(RPS);
-  stepper_1.setAccelerationInRevolutionsPerSecondPerSecond(ACC);
-  stepper_1.setDecelerationInRevolutionsPerSecondPerSecond(ACC);
-  stepper_1.setTargetPositionToStop();
-  stepper_1.startAsService(CORE);
+  Rotational_Driver.connectToPins(ROTATION_DRIVER_PULSE, ROTATION_DRIVER_DIR);
+  Rotational_Driver.setStepsPerRevolution(STEP_PULSE_ROTATION_CONVERSION);
+  Rotational_Driver.setSpeedInRevolutionsPerSecond(maxSpeedRotation);
+  Rotational_Driver.setAccelerationInRevolutionsPerSecondPerSecond(maxAccelerationRotation);
+  Rotational_Driver.setDecelerationInRevolutionsPerSecondPerSecond(maxAccelerationRotation);
+  Rotational_Driver.setTargetPositionToStop();
+  Rotational_Driver.startAsService(CORE);
+
+  Translation_Driver.connectToPins(TRANSLATION_DRIVER_PULSE, TRANSLATION_DRIVER_DIR);
+  Translation_Driver.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION);
+  Translation_Driver.setSpeedInMillimetersPerSecond(maxSpeedTranslation);
+  Translation_Driver.setAccelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
+  Translation_Driver.setDecelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
+  Translation_Driver.setTargetPositionToStop();
+  Translation_Driver.startAsService(CORE);
 }
 
 void loop() {
-  Serial.print("ACC: ");
-  Serial.print(ACC);
+  Serial.print("ROT __ ACC: ");
+  Serial.print(maxAccelerationRotation);
   Serial.print(" SPEED: ");
-  Serial.print(stepper_1.getCurrentVelocityInRevolutionsPerSecond());
+  Serial.print(Rotational_Driver.getCurrentVelocityInRevolutionsPerSecond());
   Serial.print(" REV: ");
-  Serial.print(stepper_1.getCurrentPositionInRevolutions());
+  Serial.print(Rotational_Driver.getCurrentPositionInRevolutions());
   Serial.print(" TARGET: ");
-  Serial.println(stepper_1.getTargetPositionInRevolutions());
-  if (stepper_1.getDistanceToTargetSigned() == 0 && direction*target > 0) {
-    direction *= -1;
-    timer = millis() + 1000;
+  Serial.print(Rotational_Driver.getTargetPositionInRevolutions());
+  Serial.print(" TRANS __ ACC: ");
+  Serial.print(maxAccelerationTranslation);
+  Serial.print(" SPEED: ");
+  Serial.print(Translation_Driver.getCurrentVelocityInRevolutionsPerSecond());
+  Serial.print(" REV: ");
+  Serial.print(Translation_Driver.getCurrentPositionInRevolutions());
+  Serial.print(" TARGET: ");
+  Serial.println(Translation_Driver.getTargetPositionInRevolutions());
+
+  if (Rotational_Driver.getDistanceToTargetSigned() == 0 && direction_ROT*target_ROT > 0) {
+    direction_ROT *= -1;
+    timer_ROT = millis() + 1000;
   }
-  if (millis() > timer && direction*target < 0) {
-    target =  direction*REVOLUTIONS;
-    stepper_1.setTargetPositionInRevolutions(target);
-    timer = millis() + 1000;
+  if (millis() > timer_ROT && direction_ROT*target_ROT < 0) {
+    target_ROT =  direction_ROT*REVOLUTIONS;
+    Rotational_Driver.setTargetPositionInRevolutions(target_ROT);
+    timer_ROT = millis() + 1000;
+  }
+
+  if (Translation_Driver.getDistanceToTargetSigned() == 0 && direction_TRANS*target_TRANS > 0) {
+    direction_TRANS *= -1;
+    timer_TRANS = millis() + 1000;
+  }
+  if (millis() > timer_TRANS && direction_TRANS*target_TRANS < 0) {
+    target_TRANS = direction_TRANS*REVOLUTIONS*mmPerRevolution;
+    Translation_Driver.setTargetPositionInMillimeters(target_TRANS);
+    timer_TRANS = millis() + 1000;
   }
 }

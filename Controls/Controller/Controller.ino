@@ -2,92 +2,92 @@
 #include <ESP_FlexyStepper.h>
 #include "Controller_Constants.h"
 
-const bool SERIAL_ON = true;
-const int proccesDelay = 0;
+//States
+#define OFF 0
+#define RUNNING 1
+#define DISABLED 2
+#define EMERGENCY_STOP 3
+#define DISABLING 4
+#define STARTING 5
 
-TaskHandle_t Controller;
+const bool SERIAL_ON = true;
+const int PROCESS_DELAY = COM_DELAY;
+
+TaskHandle_t Main;
 TaskHandle_t Communication;
 
-ESP_FlexyStepper Translation_Stepper;
-ESP_FlexyStepper Rotation_Stepper;
+ESP_FlexyStepper translation_stepper;
+ESP_FlexyStepper rotation_stepper;
 
-void SHUTDOWN();
-void START();
-bool CAN_running();
-void Controller_Core(void * parameters);
-void CAN_Sender(void * parameters);
-void CAN_Handler(int packet_size);
-void IRAM_ATTR Increment_Translation();
-void IRAM_ATTR Increment_Rotation();
+void mainProcess(void * parameters);
+void CANHandler(int packet_size);
+void evaluateState();
+// void IRAM_ATTR Increment_Translation();
+// void IRAM_ATTR Increment_Rotation();
 
-int ID = 0;
+int board_ID = 0;
 
-double translationMeasured = 0;
-double rotationMeasured = 0;
-double translationDesired = 0;
-double rotationDesired = 0;
+int state = 0;
+bool emergency_stop = false;
 
-int translationEncoder = 0;
-int rotationEncoder = 0;
-bool rotationEncoderActive = false;
-bool translationEncoderActive = false;
+double translation_measured = 0;
+double rotation_measured = 0;
+double translation_desired = 0;
+double rotation_desired = 0;
 
-unsigned long messageTime = 0;
-bool RUNNING = false;
-bool E_STOP = false;
+int translation_sensor = 0;
+int rotationSensor = 0;
+bool rotationSensorActive = false;
+bool translationSensorActive = false;
 
-union {
+unsigned long message_time = 0;
+
+typedef union {
+    float value;
     byte bytes[sizeof(float)];
-    float value = 0;
-} translationMeasured_f;
-
-union {
-    byte bytes[sizeof(float)];
-    float value = 0;
-} rotationMeasured_f;
-
-union {
-    byte bytes[sizeof(float)];
-    float value = 0;
-} translationDesired_f;
-
-union {
-    byte bytes[sizeof(float)];
-    float value = 0;
-} rotationDesired_f;
+} FLOAT_BYTE_UNION;
 
 void setup() {
+    Serial.begin(115200);
+    while (!Serial);
     if (SERIAL_ON) {
         Serial.begin(115200);
         while (!Serial);
     }
     
     //Pin Initialization
-    pinMode(ID_2, INPUT);
     pinMode(ID_1, INPUT);
-    attachInterrupt(TRANSLATION_ENCODER, Increment_Translation, RISING);
-    attachInterrupt(ROTATION_ENCODER, Increment_Rotation, RISING);
+    pinMode(ID_2, INPUT);
+    pinMode(ENABLE, INPUT);
+    // attachInterrupt(TRANSLATION_SENSOR, Increment_Translation, RISING);
+    // attachInterrupt(ROTATION_SENSOR, Increment_Rotation, RISING);
     CAN.setPins(RXR_CAN, TXD_CAN);
     pinMode(ALL_GOOD_LED, OUTPUT);
-    Translation_Stepper.connectToPins(TRANSLATION_DRIVER_PULSE, TRANSLATION_DRIVER_DIR);
-    Rotation_Stepper.connectToPins(ROTATION_DRIVER_PULSE, ROTATION_DRIVER_DIR);
+    translation_stepper.connectToPins(TRANSLATION_DRIVER_PULSE, TRANSLATION_DRIVER_DIR);
+    rotation_stepper.connectToPins(ROTATION_DRIVER_PULSE, ROTATION_DRIVER_DIR);
 
-    ID = digitalRead(ID_2)*2 + digitalRead(ID_1);
+    board_ID = digitalRead(ID_2)*2 + digitalRead(ID_1);
 
     if (SERIAL_ON) {
         Serial.print("Board ID: ");
-        Serial.println(ID);
+        Serial.println(board_ID);
     }
 
-    Translation_Stepper.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION);
-    Translation_Stepper.setAccelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
-    Translation_Stepper.setDecelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
-    Translation_Stepper.setSpeedInMillimetersPerSecond(maxSpeedTranslation);
+    translation_stepper.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION);
+    translation_stepper.setAccelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
+    translation_stepper.setDecelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
 
-    Rotation_Stepper.setStepsPerMillimeter(STEP_PULSE_ROTATION_CONVERSION);
-    Rotation_Stepper.setAccelerationInMillimetersPerSecondPerSecond(maxAccelerationRotation);
-    Rotation_Stepper.setDecelerationInMillimetersPerSecondPerSecond(maxAccelerationRotation);
-    Rotation_Stepper.setSpeedInMillimetersPerSecond(maxSpeedRotation);
+    rotation_stepper.setStepsPerRevolution(STEP_PULSE_ROTATION_CONVERSION);
+    rotation_stepper.setAccelerationInRevolutionsPerSecondPerSecond(maxAccelerationRotation);
+    rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(maxAccelerationRotation);
+
+    // if (!zero()){
+    //     digitalWrite(ALL_GOOD_LED, LOW);
+    //     while(1);
+    // }
+
+    translation_stepper.setSpeedInMillimetersPerSecond(maxSpeedTranslation);
+    rotation_stepper.setSpeedInRevolutionsPerSecond(maxSpeedRotation);
 
     // start the CAN bus at 500 kbps
     if (!CAN.begin(500E3)) {
@@ -96,210 +96,224 @@ void setup() {
         while (1);
     }
     if (SERIAL_ON) Serial.println("Starting CAN success");
-    CAN.filter(0b10101111, 1 << ID);
-    CAN.onReceive(CAN_Handler);
-    if (!ZERO()){
-        digitalWrite(ALL_GOOD_LED, LOW);
-        while(1);
-    }
+    CAN.filter(0b1 << board_ID, 0b10100000 + (1 << board_ID));
     
-    messageTime = millis();
-    //Assigning Controller and Communication Tasks to specific cores
-    xTaskCreatePinnedToCore(Controller_Core,
-                            "Controller",
-                            10000,
-                            NULL,
-                            5,
-                            NULL,
-                            CONTROL_CORE);
-
-    xTaskCreatePinnedToCore(CAN_Sender,
-                            "Communication",
-                            10000,
-                            NULL,
-                            5,
-                            NULL,
-                            COM_CORE);
-    START();
+    message_time = millis();
+    evaluateState();
 }
 
+double start_time = millis();
 void loop() {
+    evaluateState();
+    CANReceiver();
+    setControl();
+    if (millis() - start_time > COM_DELAY){
+        CANSender();
+    }
 }
 
-bool ZERO(){
-    if (SERIAL_ON) Serial.println("Zeroing...");
-    bool success = (Translation_Stepper.moveToHomeInMillimeters(homeDirTranslation, homeSpeedTranslation, maxTranslations[ID], TRANSLATION_DRIVER_ZERO) 
-    &&
-    Rotation_Stepper.moveToHomeInRevolutions(homeDirRotation, homeSpeedRotation, 1, ROTATION_DRIVER_ZERO));
-    if (success) translationEncoder = rotationEncoder = 0;
-    if (SERIAL_ON && success) Serial.println("Zeroing success");
-    else if(SERIAL_ON) Serial.println("Zeroing failed");
+bool zero(){
+    if (SERIAL_ON) Serial.print("Zeroing Translation...");
+    bool success_translation = translation_stepper.moveToHomeInMillimeters(directions[board_ID][TRANSLATION]*-1, homeSpeedTranslation, maxTranslations[board_ID], TRANSLATION_DRIVER_ZERO);
+    if (!success_translation) {
+        if (SERIAL_ON) Serial.println(" Failed");
+        return success_translation;
+    }
+    if (SERIAL_ON) {
+        Serial.println(" Success");
+        Serial.print("Zeroing Rotation...");
+    }
+    bool success_rotation = rotation_stepper.moveToHomeInRevolutions(directions[board_ID][ROTATION]*-1, homeSpeedRotation, 2, ROTATION_DRIVER_ZERO);
+    if (!success_rotation) {
+        if (SERIAL_ON) Serial.println(" Failed");
+        return success_rotation;
+    }
+    bool success = success_rotation && success_translation;
+    if (success) {
+        translation_sensor = rotationSensor = 0;
+    }
+    if (SERIAL_ON && success) Serial.println(" Success");
+    else if(SERIAL_ON) Serial.println(" Failed");
     return success;
 }
 
-void SHUTDOWN() {
-    if (RUNNING) {
-        Translation_Stepper.emergencyStop(false);
-        Rotation_Stepper.emergencyStop(false);
-        Translation_Stepper.stopService();
-        Rotation_Stepper.stopService();
-
-        digitalWrite(ALL_GOOD_LED, LOW);
-        RUNNING = false;
-
-        if (SERIAL_ON) Serial.println("SHUTDOWN");
+void setControl(){
+    if (state == RUNNING) {
+        if (translation_desired > maxTranslations[board_ID]) translation_desired = maxTranslations[board_ID];
+        if (translation_desired < 0) translation_desired = 0;
+        translation_stepper.setTargetPositionInMillimeters(directions[board_ID][TRANSLATION]*translation_desired);
+        rotation_stepper.setTargetPositionInRevolutions(directions[board_ID][ROTATION]*rotation_desired);
     }
+    // if (rotationSensorActive) rotation_stepper.setCurrentPositionInRevolutions(rotationSensor);
+    // if (translationSensorActive) translation_stepper.setCurrentPositionInMillimeters(translation_sensor);
 }
 
-void START() {
-    if (!RUNNING) {
-        //Activating Stepper
-        Translation_Stepper.startAsService(STEPPER_CORE);
-        Rotation_Stepper.startAsService(STEPPER_CORE);
-
-        digitalWrite(ALL_GOOD_LED, HIGH);
-        RUNNING = true;
-        E_STOP = false;
-        if (SERIAL_ON) Serial.println("START");
+void CANSender(){
+    FLOAT_BYTE_UNION translation_measured_f;
+    FLOAT_BYTE_UNION rotation_measured_f;
+    start_time = millis();
+    translation_measured_f.value = (float)(directions[board_ID][TRANSLATION]*translation_stepper.getCurrentPositionInMillimeters());
+    rotation_measured_f.value = (float)(directions[board_ID][ROTATION]*rotation_stepper.getCurrentPositionInRevolutions());
+    if (state == RUNNING) {
+        CAN.beginPacket(0b10010000 + (1 << board_ID));
+        for (int i = sizeof(float)-1; i >= 0; i--){
+            CAN.write(translation_measured_f.bytes[i]);
+        }
+        for (int i = sizeof(float)-1; i >= 0; i--){
+            CAN.write(rotation_measured_f.bytes[i]);
+        }
+        CAN.endPacket();
     }
-}
-
-bool CAN_running(){
-    if (millis() - messageTime > MAX_COM_DELAY) {
-        SHUTDOWN();
-        return false;
+    else if (state == DISABLED || state == EMERGENCY_STOP) {
+        CAN.beginPacket((1 << board_ID) + 0b10000000);
+        for (int i = sizeof(float)-1; i >= 0; i--){
+            CAN.write(translation_measured_f.bytes[i]);
+        }
+        for (int i = sizeof(float)-1; i >= 0; i--){
+            CAN.write(rotation_measured_f.bytes[i]);
+        }
+        CAN.endPacket();
     } else {
-        if (!E_STOP) START();
-        return true;
+        if (SERIAL_ON) Serial.println("NON PRINT STATE");
     }
 }
 
-void Controller_Core(void * parameters){
-    for(;;){
-        if (CAN_running()) {
-            if (translationDesired > maxTranslations[ID]) translationDesired = maxTranslations[ID];
-            if (translationDesired < 0) translationDesired = 0;
-            Translation_Stepper.setTargetPositionInMillimeters(translationDesired);
-            Rotation_Stepper.setTargetPositionInRevolutions(rotationDesired);
+void CANReceiver(){
+    if (CAN.parsePacket()){
+        message_time = millis();
+        FLOAT_BYTE_UNION translation_desired_f;
+        FLOAT_BYTE_UNION rotation_desired_f;
+        if (SERIAL_ON) {
+            Serial.print("(packet: 0x");
+            Serial.print(CAN.packetId(), HEX);
+            Serial.print(" ");
         }
-
-        if (rotationEncoderActive) Rotation_Stepper.setCurrentPositionInRevolutions(rotationEncoder);
-        if (translationEncoderActive) Translation_Stepper.setCurrentPositionInMillimeters(translationEncoder);
-        delay(proccesDelay);
-    }
-}
-
-//Need to decide on packet format
-void CAN_Sender(void * parameters){
-    for(;;){
-        translationMeasured_f.value = (float)Translation_Stepper.getCurrentPositionInMillimeters();
-        rotationMeasured_f.value = (float)Rotation_Stepper.getCurrentPositionInRevolutions();;
-        if (CAN_running()) {
-            CAN.beginPacket(1 << ID);
-            for (int i = 0; i < sizeof(float); i++){
-                CAN.write(translationMeasured_f.bytes[i]);
-            }
-            for (int i = 0; i < sizeof(float); i++){
-                CAN.write(rotationMeasured_f.bytes[i]);
-            }
-            CAN.endPacket();
-        }
-        if (!RUNNING) {
-            CAN.beginPacket(1 << ID + 0b010000);
-            for (int i = 0; i < sizeof(float); i++){
-                CAN.write(translationMeasured_f.bytes[i]);
-            }
-            for (int i = 0; i < sizeof(float); i++){
-                CAN.write(rotationMeasured_f.bytes[i]);
-            }
-            CAN.endPacket();
-        }
-        delay(COM_DELAY);
-    }
-}
-
-//Need to decide on packet format
-void CAN_Handler(int packet_size){
-    messageTime = millis();
-    if (SERIAL_ON) {
-        Serial.print("(packet: 0x");
-        Serial.print(CAN.packetId(), HEX);
-    }
-
-    //EMERGENCY STOP
-    if (CAN.packetId() & 0b11110000 == 0b00000000) {
-        SHUTDOWN();
-        E_STOP = true;
-        return;
-    }
-
-    //ZERO
-    if (CAN.packetId() & 0b11000000 == 0b01000000) {
-        SHUTDOWN();
-        ZERO();
-        START();
-        return;
-    }
-
-    int rotationIndex = sizeof(float)-1;
-    int translationIndex = sizeof(float)-1;
-    bool dataReceived = false;
-    while(CAN.available()){
-        dataReceived = true;
-        if (translationIndex > 0){
-            translationDesired_f.bytes[translationIndex--] = (byte)CAN.read();
-        } else if (rotationIndex > 0) {
-            rotationDesired_f.bytes[rotationIndex--] = (byte)CAN.read();
+    
+        //EMERGENCY STOP
+        if (CAN.packetId() & 0b11110000 == 0b00000000) {
+            emergency_stop = true;
+            evaluateState();
+            return;
         } else {
-            if (SERIAL_ON) Serial.println("DATA DROPPED)");
+            emergency_stop = false;
+        }
+    
+        //zero
+        if (CAN.packetId() & 0b11000000 == 0b01000000) {
+            zero();
             return;
         }
-    }
-    if (dataReceived){
-        if (!((translationIndex > 0) && (rotationIndex > 0))) {
-            if (SERIAL_ON) Serial.println("LESS THAN 8 BYTES RECEIVED)");
-            return;
+    
+        int rotation_index = sizeof(float)-1;
+        int translation_index = sizeof(float)-1;
+        bool data_received = false;
+        while(CAN.available()){
+            data_received = true;
+            if (translation_index >= 0){
+                translation_desired_f.bytes[translation_index--] = (byte)CAN.read();
+            } else if (rotation_index >= 0) {
+                rotation_desired_f.bytes[rotation_index--] = (byte)CAN.read();
+            } else {
+                if (SERIAL_ON) Serial.println("DATA DROPPED)");
+                return;
+            }
         }
-        rotationDesired = (double)rotationDesired_f.value;
-        translationDesired = (double)translationDesired_f.value;
-        if (SERIAL_ON){
-            Serial.print(" Rotation: ");
-            Serial.print(rotationDesired);
-            Serial.print(" Translation: ");
-            Serial.print(translationDesired);
+        if (data_received){
+            if (!((translation_index < 0) && (rotation_index < 0))) {
+                if (SERIAL_ON) Serial.println("LESS THAN 8 BYTES RECEIVED)");
+                return;
+            }
+            rotation_desired = (double)rotation_desired_f.value;
+            translation_desired = (double)translation_desired_f.value;
+            if (SERIAL_ON){
+                Serial.print(" Rotation: ");
+                Serial.print(rotation_desired);
+                Serial.print(" Translation: ");
+                Serial.print(translation_desired);
+            }
+        }
+        if (SERIAL_ON) Serial.println(")");
+    }
+}
+
+//Zeroing my mess this up
+void evaluateState(){
+    if (state == OFF){
+        if (emergency_stop) {
+            state = DISABLING;
+        } else {
+            state = STARTING;
+        }
+    } else if (state == RUNNING){
+        if (emergency_stop || (millis() - message_time > MAX_COM_DELAY) || (digitalRead(ENABLE) == LOW)) {
+            state = DISABLING;
+        }
+    } else if (state == DISABLED){
+        if (emergency_stop) state = EMERGENCY_STOP;
+        else if ((millis() - message_time < MAX_COM_DELAY) && (digitalRead(ENABLE) == HIGH)) {
+            state = STARTING;
+        }
+        if ((digitalRead(ENABLE) == LOW) && SERIAL_ON) Serial.println("STOP SWITCH ACTIVE");
+    } else if (state == EMERGENCY_STOP){
+        if (SERIAL_ON) Serial.println("EMERGENCY_STOP");
+        if (!emergency_stop) {
+            state = DISABLED;
         }
     }
-
-    if (SERIAL_ON) Serial.println(")");
-    if (!RUNNING) START();
-}
-
-void IRAM_ATTR Increment_Translation(){
-    int spinDirection = Translation_Stepper.getDirectionOfMotion();
-    if (spinDirection > 0) {
-        translationEncoder += 1 * ENCODER_PULSE_TRANSLATION_CONVERSION;
-    } else if (spinDirection < 0) {
-        translationEncoder -= 1 * ENCODER_PULSE_TRANSLATION_CONVERSION;
-    } else {
-        if (SERIAL_ON) Serial.println("Increment_Translation called with movement = 0");
+    if (state == STARTING){
+        if (SERIAL_ON) Serial.println("STARTING");
+        if (emergency_stop) {
+            state = DISABLING;
+        } else {
+            translation_stepper.startAsService(STEPPER_CORE);
+            rotation_stepper.startAsService(STEPPER_CORE);
+            digitalWrite(ALL_GOOD_LED, HIGH);
+            state = RUNNING;
+            if (SERIAL_ON) Serial.println("STARTED");
+        }
     }
-    if (!translationEncoderActive && abs(translationEncoder) > MINIMUM_ENCODER_PULSES * ENCODER_PULSE_TRANSLATION_CONVERSION) {
-        if (SERIAL_ON) Serial.println("Translation Encoder Active");
-        translationEncoderActive = true;
-    }
-}
-
-void IRAM_ATTR Increment_Rotation(){
-    int spinDirection = Rotation_Stepper.getDirectionOfMotion();
-    if (spinDirection > 0) {
-        rotationEncoder += 1 * ENCODER_PULSE_ROTATION_CONVERSION;
-    } else if (spinDirection < 0) {
-        rotationEncoder -= 1 * ENCODER_PULSE_ROTATION_CONVERSION;
-    } else {
-        if (SERIAL_ON) Serial.println("Increment_Rotation called with movement = 0");
-    }
-    if (!rotationEncoderActive && abs(rotationEncoder) > MINIMUM_ENCODER_PULSES * ENCODER_PULSE_ROTATION_CONVERSION) {
-        if (SERIAL_ON) Serial.println("Rotation Encoder Active");
-        rotationEncoderActive = true;
+    if (state == DISABLING){
+        if (SERIAL_ON) Serial.println("DISABLING");
+        translation_stepper.emergencyStop(false);
+        rotation_stepper.emergencyStop(false);
+        translation_stepper.stopService();
+        rotation_stepper.stopService();
+        digitalWrite(ALL_GOOD_LED, LOW);
+        if (emergency_stop) {
+          state = EMERGENCY_STOP;
+          return;
+        }
+        else state = DISABLED;
+        if (SERIAL_ON) Serial.println("DISABLED");
     }
 }
+
+// void IRAM_ATTR Increment_Translation(){
+//     int spin_direction = translation_stepper.getDirectionOfMotion();
+//     if (spin_direction > 0) {
+//         translation_sensor += 1 * SENSOR_PULSE_TRANSLATION_CONVERSION;
+//     } else if (spin_direction < 0) {
+//         translation_sensor -= 1 * SENSOR_PULSE_TRANSLATION_CONVERSION;
+//     } else {
+//         if (SERIAL_ON) Serial.println("Increment_Translation called with movement = 0");
+//     }
+//     if (!translationSensorActive && abs(translation_sensor) > MINIMUM_SENSOR_PULSES * SENSOR_PULSE_TRANSLATION_CONVERSION) {
+//         if (SERIAL_ON) Serial.println("Translation Sensor Active");
+//         translationSensorActive = true;
+//     }
+// }
+
+// void IRAM_ATTR Increment_Rotation(){
+//     int spin_direction = rotation_stepper.getDirectionOfMotion();
+//     if (spin_direction > 0) {
+//         rotationSensor += 1 * SENSOR_PULSE_ROTATION_CONVERSION;
+//     } else if (spin_direction < 0) {
+//         rotationSensor -= 1 * SENSOR_PULSE_ROTATION_CONVERSION;
+//     } else {
+//         if (SERIAL_ON) Serial.println("Increment_Rotation called with movement = 0");
+//     }
+//     if (!rotationSensorActive && abs(rotationSensor) > MINIMUM_SENSOR_PULSES * SENSOR_PULSE_ROTATION_CONVERSION) {
+//         if (SERIAL_ON) Serial.println("Rotation Sensor Active");
+//         rotationSensorActive = true;
+//     }
+// }
