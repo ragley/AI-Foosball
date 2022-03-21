@@ -48,8 +48,6 @@ typedef union {
 } FLOAT_BYTE_UNION;
 
 void setup() {
-    Serial.begin(115200);
-    while (!Serial);
     if (SERIAL_ON) {
         Serial.begin(115200);
         while (!Serial);
@@ -74,20 +72,20 @@ void setup() {
     }
 
     translation_stepper.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION);
-    translation_stepper.setAccelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
-    translation_stepper.setDecelerationInMillimetersPerSecondPerSecond(maxAccelerationTranslation);
+    translation_stepper.setAccelerationInMillimetersPerSecondPerSecond(MAX_ACCELERATION_TRANSLATION);
+    translation_stepper.setDecelerationInMillimetersPerSecondPerSecond(MAX_ACCELERATION_TRANSLATION);
 
     rotation_stepper.setStepsPerRevolution(STEP_PULSE_ROTATION_CONVERSION);
-    rotation_stepper.setAccelerationInRevolutionsPerSecondPerSecond(maxAccelerationRotation);
-    rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(maxAccelerationRotation);
+    rotation_stepper.setAccelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
+    rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
 
     // if (!zero()){
     //     digitalWrite(ALL_GOOD_LED, LOW);
     //     while(1);
     // }
 
-    translation_stepper.setSpeedInMillimetersPerSecond(maxSpeedTranslation);
-    rotation_stepper.setSpeedInRevolutionsPerSecond(maxSpeedRotation);
+    translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
+    rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
 
     // start the CAN bus at 500 kbps
     if (!CAN.begin(500E3)) {
@@ -114,7 +112,7 @@ void loop() {
 
 bool zero(){
     if (SERIAL_ON) Serial.print("Zeroing Translation...");
-    bool success_translation = translation_stepper.moveToHomeInMillimeters(directions[board_ID][TRANSLATION]*-1, homeSpeedTranslation, maxTranslations[board_ID], TRANSLATION_DRIVER_ZERO);
+    bool success_translation = translation_stepper.moveToHomeInMillimeters(DIRECTIONS[board_ID][TRANSLATION]*-1, HOME_SPEED_TRANSLATION, MAX_TRANSLATIONS[board_ID], TRANSLATION_DRIVER_ZERO);
     if (!success_translation) {
         if (SERIAL_ON) Serial.println(" Failed");
         return success_translation;
@@ -123,7 +121,7 @@ bool zero(){
         Serial.println(" Success");
         Serial.print("Zeroing Rotation...");
     }
-    bool success_rotation = rotation_stepper.moveToHomeInRevolutions(directions[board_ID][ROTATION]*-1, homeSpeedRotation, 2, ROTATION_DRIVER_ZERO);
+    bool success_rotation = rotation_stepper.moveToHomeInRevolutions(DIRECTIONS[board_ID][ROTATION]*-1, HOME_SPEED_ROTATION, 2, ROTATION_DRIVER_ZERO);
     if (!success_rotation) {
         if (SERIAL_ON) Serial.println(" Failed");
         return success_rotation;
@@ -139,10 +137,10 @@ bool zero(){
 
 void setControl(){
     if (state == RUNNING) {
-        if (translation_desired > maxTranslations[board_ID]) translation_desired = maxTranslations[board_ID];
+        if (translation_desired > MAX_TRANSLATIONS[board_ID]) translation_desired = MAX_TRANSLATIONS[board_ID];
         if (translation_desired < 0) translation_desired = 0;
-        translation_stepper.setTargetPositionInMillimeters(directions[board_ID][TRANSLATION]*translation_desired);
-        rotation_stepper.setTargetPositionInRevolutions(directions[board_ID][ROTATION]*rotation_desired);
+        translation_stepper.setTargetPositionInMillimeters(DIRECTIONS[board_ID][TRANSLATION]*translation_desired);
+        rotation_stepper.setTargetPositionInRevolutions(DIRECTIONS[board_ID][ROTATION]*rotation_desired);
     }
     // if (rotationSensorActive) rotation_stepper.setCurrentPositionInRevolutions(rotationSensor);
     // if (translationSensorActive) translation_stepper.setCurrentPositionInMillimeters(translation_sensor);
@@ -152,8 +150,8 @@ void CANSender(){
     FLOAT_BYTE_UNION translation_measured_f;
     FLOAT_BYTE_UNION rotation_measured_f;
     start_time = millis();
-    translation_measured_f.value = (float)(directions[board_ID][TRANSLATION]*translation_stepper.getCurrentPositionInMillimeters());
-    rotation_measured_f.value = (float)(directions[board_ID][ROTATION]*rotation_stepper.getCurrentPositionInRevolutions());
+    translation_measured_f.value = (float)(DIRECTIONS[board_ID][TRANSLATION]*translation_stepper.getCurrentPositionInMillimeters());
+    rotation_measured_f.value = (float)(DIRECTIONS[board_ID][ROTATION]*rotation_stepper.getCurrentPositionInRevolutions());
     if (state == RUNNING) {
         CAN.beginPacket(0b10010000 + (1 << board_ID));
         for (int i = sizeof(float)-1; i >= 0; i--){
@@ -236,7 +234,7 @@ void CANReceiver(){
     }
 }
 
-//Zeroing my mess this up
+//Zeroing may mess this up
 void evaluateState(){
     if (state == OFF){
         if (emergency_stop) {
