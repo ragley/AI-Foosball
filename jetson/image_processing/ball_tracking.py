@@ -1,8 +1,15 @@
 #!/usr/bin/python3
-# import the necessary packages
-# To run execute: python3 ball_tracking.py
-# To package the code run: pyinstaller ball_tracking.py
-# When the app is running, press 'q' to cleanly stop the app.
+"""
+To run: python3 ball_tracking.py
+
+To run at boot:
+- copy to /boot directory
+	- sudo cp ./ball_tracking.py /boot/ball_tracking.py
+- enable service
+	- sudo systemctl enable ball_tracking.service
+- All done!
+See README for additional details
+"""
 from imutils.video import VideoStream
 import numpy as np
 import cv2
@@ -23,14 +30,15 @@ PORT = 5000 # port that is configured on the server
 SOCKET = None # the socket connection
 
 def connectToServer():
-	try:
-		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		sock.connect((HOST, PORT))
-		return sock
-	except:
-		print("Cannot find server... trying again...")		
-		time.sleep(2)
-		connectToServer()
+	while True:	
+		try:
+			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			sock.connect((HOST, PORT))
+			return sock
+		except:
+			print("Cannot find server... trying again...")		
+			time.sleep(2)
+			continue
 
 def sendDataToServer(x, y, Vx, Vy):	
 	data = {}
@@ -49,9 +57,15 @@ def sendDataToServer(x, y, Vx, Vy):
 	# This is a mimic of the Message.encode_to_send() function
 	json_data = json.dumps(data)
 	json_bytes = bytes(json_data, encoding="utf-8")
-
-	# Send the data to the Server
-	SOCKET.sendall(len(json_bytes).to_bytes(4, byteorder="big") + json_bytes)
+	
+	try:
+		# Send the data to the Server
+		SOCKET.sendall(len(json_bytes).to_bytes(4, byteorder="big") + json_bytes)
+	except: 
+		"""
+		If the server shuts down mid game, we don't want to crash
+		"""
+		SOCKET = connectToServer()
 
 
 def calculateVelocity(x, y, previous_x, previous_y, t1, t2):
@@ -70,7 +84,6 @@ def processImage(undistorted_frame):
 	# resize the frame, blur it, and convert it to the HSV
 	# color space
 	# frame = imutils.resize(frame, width=600)
-	blurred = cv2.GaussianBlur(undistorted_frame, (11, 11), 0)
 	hsv = cv2.cvtColor(undistorted_frame, cv2.COLOR_BGR2HSV)
 	
 	# construct a mask for the color "green", then perform
@@ -90,6 +103,9 @@ def ball_tracking():
 	length_cm_per_pixel_ratio = np.divide(table_length, DIM[0]) # x value ratio
 	width_cm_per_pixel_ratio = np.divide(table_width, DIM[1]) # y value ratio
 
+	# mapping for fisheye calibration	
+	map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
+
 	# if a video path was not supplied, grab the reference
 	# to the webcam
 	vs = VideoStream(0)
@@ -108,14 +124,13 @@ def ball_tracking():
 	# begin image detection
 	while True:
 		# performance testing
-		# time1 = cv2.getTickCount()
+		startTime = cv2.getTickCount()
 
 		# grab the current frame
-		frame = vs.read()
+		# frame = vs.read()
 		
 		# remove fisheye, new (undistored) frame is used for the remainder of the app
-		map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
-		undistorted_frame = cv2.remap(frame, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+		undistorted_frame = cv2.remap(vs.read(), map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
 		mask = processImage(undistorted_frame)
 		
 		# find contours in the mask and initialize the current
@@ -130,11 +145,11 @@ def ball_tracking():
 				# find the largest contour in the mask, then use
 				# it to compute the minimum enclosing circle and
 				# centroid
-				c = max(cnts, key=cv2.contourArea)
-				((x, y), radius) = cv2.minEnclosingCircle(c)
+				contour = max(cnts, key=cv2.contourArea)
+				((x, y), radius) = cv2.minEnclosingCircle(contour)
 				current_time = cv2.getTickCount()/cv2.getTickFrequency()
-				M = cv2.moments(c)
-				center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+				# M = cv2.moments(c)
+				# center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
 
 				# calculate "real" position and velocity
 				# x, y are pixel values, convert to cm values
@@ -142,7 +157,7 @@ def ball_tracking():
 				real_y = np.multiply(y, width_cm_per_pixel_ratio) 
 				if not previous_time == 0: # i.e. not on the first sighting of the ball
 					(Vx, Vy) = calculateVelocity(real_x, real_y, previous_x, previous_y, current_time, previous_time)
-					sendDataToServer(real_x, real_y, Vx, Vy) # send the data to the server			
+					# sendDataToServer(real_x, real_y, Vx, Vy) # send the data to the server			
 	
 				# print(f"Ball Location (x, y): {real_x}mm, {real_y}mm") # TODO: print statement
 				# if not previous_time == 0:
@@ -154,25 +169,25 @@ def ball_tracking():
 				previous_time = current_time
 
 				# draw a dot on the ball, only proceed if the radius meets a minimum size
-				# if radius > 1:
+				if radius > 1:
 					# draw the circle and centroid on the frame,
 					# cv2.circle(undistorted_frame, (int(x), int(x)), int(radius),(0, 255, 255), 3)
-					# cv2.circle(undistorted_frame, (int(x), int(y)), 3, (255, 0, 255), -1)
+				 	cv2.circle(undistorted_frame, (int(x), int(y)), 3, (255, 0, 255), -1)
 		except (ZeroDivisonError):
 			# to avoid crashing on divideByZero error
 			continue
 
 		# performance check
-		# time2 = cv2.getTickCount()
-		# print(f" Processing Time (ms): {((time2-time1)/cv2.getTickFrequency())*1000}") 
+		endTime = cv2.getTickCount()
+		print(f" Processing Time (ms): {((endTime-startTime)/cv2.getTickFrequency())*1000}") 
 
 		# TODO: Remove this for final product
 		# show the frame to our screen
-		# cv2.imshow("Frame", undistorted_frame)
-		# key = cv2.waitKey(1) & 0xFF
+		cv2.imshow("Frame", undistorted_frame)
+		key = cv2.waitKey(1) & 0xFF
 		# if the 'q' key is pressed, stop the loop
-		# if key == ord("q"):
-		# 	break
+		if key == ord("q"):
+			break
 		
 		
 	
@@ -180,6 +195,6 @@ def ball_tracking():
 	vs.stop()
 
 
-SOCKET = connectToServer()
+# SOCKET = connectToServer()
 ball_tracking()
 cv2.destroyAllWindows()
