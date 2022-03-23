@@ -9,6 +9,7 @@
 #define EMERGENCY_STOP 3
 #define DISABLING 4
 #define STARTING 5
+#define STOP_SWITCH 6
 
 const bool SERIAL_ON = true;
 const int PROCESS_DELAY = COM_DELAY;
@@ -19,8 +20,10 @@ TaskHandle_t Communication;
 ESP_FlexyStepper translation_stepper;
 ESP_FlexyStepper rotation_stepper;
 
-void mainProcess(void * parameters);
-void CANHandler(int packet_size);
+bool zero();
+void setControl();
+void CANSender();
+void CANReceiver();
 void evaluateState();
 // void IRAM_ATTR Increment_Translation();
 // void IRAM_ATTR Increment_Rotation();
@@ -94,7 +97,7 @@ void setup() {
         while (1);
     }
     if (SERIAL_ON) Serial.println("Starting CAN success");
-    CAN.filter(0b1 << board_ID, 0b10100000 + (1 << board_ID));
+    CAN.filter(0b1 << board_ID, 0b10100000 + (1 << board_ID) + 0x1fffff00);
     
     message_time = millis();
     evaluateState();
@@ -106,6 +109,7 @@ void loop() {
     CANReceiver();
     setControl();
     if (millis() - start_time > COM_DELAY){
+        start_time = millis();
         CANSender();
     }
 }
@@ -149,9 +153,9 @@ void setControl(){
 void CANSender(){
     FLOAT_BYTE_UNION translation_measured_f;
     FLOAT_BYTE_UNION rotation_measured_f;
-    start_time = millis();
     translation_measured_f.value = (float)(DIRECTIONS[board_ID][TRANSLATION]*translation_stepper.getCurrentPositionInMillimeters());
     rotation_measured_f.value = (float)(DIRECTIONS[board_ID][ROTATION]*rotation_stepper.getCurrentPositionInRevolutions());
+    if (SERIAL_ON) Serial.print("Sent: (packet: 0b");
     if (state == RUNNING) {
         CAN.beginPacket(0b10010000 + (1 << board_ID));
         for (int i = sizeof(float)-1; i >= 0; i--){
@@ -161,8 +165,9 @@ void CANSender(){
             CAN.write(rotation_measured_f.bytes[i]);
         }
         CAN.endPacket();
+        if (SERIAL_ON) Serial.print(0b10010000 + (1 << board_ID), BIN);
     }
-    else if (state == DISABLED || state == EMERGENCY_STOP) {
+    else if (state == DISABLED || state == EMERGENCY_STOP || state == STOP_SWITCH) {
         CAN.beginPacket((1 << board_ID) + 0b10000000);
         for (int i = sizeof(float)-1; i >= 0; i--){
             CAN.write(translation_measured_f.bytes[i]);
@@ -171,8 +176,15 @@ void CANSender(){
             CAN.write(rotation_measured_f.bytes[i]);
         }
         CAN.endPacket();
+        if (SERIAL_ON) Serial.print((1 << board_ID) + 0b10000000, BIN);
     } else {
         if (SERIAL_ON) Serial.println("NON PRINT STATE");
+    }
+    if (SERIAL_ON) {
+        Serial.print(" ROTATION: ");
+        Serial.print(rotation_measured_f.value);
+        Serial.print(" Translation: ");
+        Serial.println(translation_measured_f.value);
     }
 }
 
@@ -182,13 +194,13 @@ void CANReceiver(){
         FLOAT_BYTE_UNION translation_desired_f;
         FLOAT_BYTE_UNION rotation_desired_f;
         if (SERIAL_ON) {
-            Serial.print("(packet: 0x");
-            Serial.print(CAN.packetId(), HEX);
+            Serial.print("Recv: (packet: 0b");
+            Serial.print(CAN.packetId(), BIN);
             Serial.print(" ");
         }
     
         //EMERGENCY STOP
-        if (CAN.packetId() & 0b11110000 == 0b00000000) {
+        if ((CAN.packetId() & 0b11110000) == 0b00000000) {
             emergency_stop = true;
             evaluateState();
             return;
@@ -197,7 +209,7 @@ void CANReceiver(){
         }
     
         //zero
-        if (CAN.packetId() & 0b11000000 == 0b01000000) {
+        if ((CAN.packetId() & 0b11000000) == 0b01000000) {
             zero();
             return;
         }
@@ -228,6 +240,22 @@ void CANReceiver(){
                 Serial.print(rotation_desired);
                 Serial.print(" Translation: ");
                 Serial.print(translation_desired);
+//                Serial.print(" Rotation: ");
+//                Serial.print(rotation_desired_f.bytes[0],HEX);
+//                Serial.print(" ");
+//                Serial.print(rotation_desired_f.bytes[1],HEX);
+//                Serial.print(" ");
+//                Serial.print(rotation_desired_f.bytes[2],HEX);
+//                Serial.print(" ");
+//                Serial.print(rotation_desired_f.bytes[3],HEX);
+//                Serial.print(" Translation: ");
+//                Serial.print(translation_desired_f.bytes[0],HEX);
+//                Serial.print(" ");
+//                Serial.print(translation_desired_f.bytes[1],HEX);
+//                Serial.print(" ");
+//                Serial.print(translation_desired_f.bytes[2],HEX);
+//                Serial.print(" ");
+//                Serial.print(translation_desired_f.bytes[3],HEX);
             }
         }
         if (SERIAL_ON) Serial.println(")");
@@ -257,7 +285,13 @@ void evaluateState(){
         if (!emergency_stop) {
             state = DISABLED;
         }
+    } else if (state == STOP_SWITCH) {
+        if (digitalRead(ENABLE) == HIGH){
+            zero();
+            state = DISABLED;
+        }
     }
+
     if (state == STARTING){
         if (SERIAL_ON) Serial.println("STARTING");
         if (emergency_stop) {
@@ -278,10 +312,10 @@ void evaluateState(){
         rotation_stepper.stopService();
         digitalWrite(ALL_GOOD_LED, LOW);
         if (emergency_stop) {
-          state = EMERGENCY_STOP;
-          return;
-        }
-        else state = DISABLED;
+            state = EMERGENCY_STOP;
+        } else if(digitalRead(ENABLE) == LOW) {
+            state = STOP_SWITCH;
+        } else state = DISABLED;
         if (SERIAL_ON) Serial.println("DISABLED");
     }
 }

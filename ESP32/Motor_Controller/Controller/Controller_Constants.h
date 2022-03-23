@@ -35,12 +35,11 @@ const double MAX_TRANSLATIONS[4] = {224, //3 rod
 const double MM_PER_REVOLUTION = 29.924;
 
 const double STEP_PULSE_ROTATION_CONVERSION = 1600; //pulse per rotation (200 pulses on the motor with the driver set at 3200) 
-const double STEP_PULSE_TRANSLATION_CONVERSION = STEP_PULSE_ROTATION_CONVERSION/MM_PER_REVOLUTION; //pulse per mm 
-//const double STEP_PULSE_TRANSLATION_CONVERSION = 8*1/0.474; //pulse per mm (8 corrects the resolution as above)
+const double STEP_PULSE_TRANSLATION_CONVERSION = STEP_PULSE_ROTATION_CONVERSION/MM_PER_REVOLUTION; //pulse per mm
 
 const double MAX_SPEED_ROTATION = 89; //rotations per second
 const double MAX_SPEED_TRANSLATION = MAX_SPEED_ROTATION*MM_PER_REVOLUTION; //mm per second
-const double MAX_ACCELERATION_ROTATION = 500; // rotations per second per second
+const double MAX_ACCELERATION_ROTATION = 5; // rotations per second per second
 const double MAX_ACCELERATION_TRANSLATION = MAX_ACCELERATION_ROTATION*MM_PER_REVOLUTION; // mm per second per second
 const double HOME_SPEED_TRANSLATION = MAX_SPEED_TRANSLATION / 10;
 const double HOME_SPEED_ROTATION = MAX_SPEED_ROTATION / 10;

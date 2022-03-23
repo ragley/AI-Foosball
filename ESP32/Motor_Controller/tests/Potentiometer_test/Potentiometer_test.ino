@@ -20,7 +20,6 @@ const int HIGH_LONG = 2;
 const int LOW_SHORT = 3;
 const int LOW_LONG = 4;
 
-//
 int last = 0;
 int current = 0;
 void IRAM_ATTR Increment_Translation(){
