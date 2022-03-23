@@ -6,17 +6,7 @@ from numpy import true_divide
 from rodFSM import compute_next_state, compute_command
 from Message import Message
 
-goal_rod = {"maxActuation":180, "playerSpacing":210, "rodX":1125, "numPlayers":3}
-two_rod = {"maxActuation":352, "playerSpacing":245, "rodX":975, "numPlayers":2}
-five_rod = {"maxActuation":112, "playerSpacing":120, "rodX":675, "numPlayers":5}
-three_rod = {"maxActuation":224, "playerSpacing":185, "rodX":375, "numPlayers":3} #check measurements
-table = {"robot_goalX":1200, "robot_goalY":350, "player_goalX":1200, "player_goalY":350, "goalWidth":200, "width":685, "length":1200}
-current_states = ["Block", "Block", "Block", "Block"]
-
-commands = {"robot_goal_rod_displacement_command":0, "robot_goal_rod_angle_command":0, "robot_two_rod_displacement_command":0, "robot_two_rod_angle_command":0, "robot_five_rod_displacement_command":0, "robot_five_rod_angle_command":0, "robot_three_rod_displacement_command":0, "robot_three_rod_angle_command":0}
-server_data = {"ballX": 0, "ballY": 0, "ball_vel_x":0, "ball_vel_y":0, "stop":False}
-
-def compute_intercepts(ballX, ballY, ball_vel_x, ball_vel_y):
+def compute_intercepts(goalX, twoX, fiveX, threeX, width, ballX, ballY, ball_vel_x, ball_vel_y):
     intercepts = [-1, -1, -1, -1]
     slope = ball_vel_y / ball_vel_x
     b = ballY - slope * ballX
@@ -25,21 +15,21 @@ def compute_intercepts(ballX, ballY, ball_vel_x, ball_vel_y):
     else:
         direction = False
     
-    if (direction and ballX < goal_rod["rodX"]) or (not direction and ballX > goal_rod["rodX"]):
+    if (direction and ballX < goalX) or (not direction and ballX > goalX):
         intercept = slope * ballX + b
-        if 0 <= intercept <= table["width"]:
+        if 0 <= intercept <= width:
             intercepts[0] = intercept
-    if (direction and ballX < two_rod["rodX"]) or (not direction and ballX > two_rod["rodX"]):
+    if (direction and ballX < twoX) or (not direction and ballX > twoX):
         intercept = slope * ballX + b
-        if 0 <= intercept <= table["width"]:
+        if 0 <= intercept <= width:
             intercepts[1] = intercept
-    if (direction and ballX < five_rod["rodX"]) or (not direction and ballX > five_rod["rodX"]):
+    if (direction and ballX < fiveX) or (not direction and ballX > fiveX):
         intercept = slope * ballX + b
-        if 0 <= intercept <= table["width"]:
+        if 0 <= intercept <= width:
             intercepts[2] = intercept
-    if (direction and ballX < three_rod["rodX"]) or (not direction and ballX > three_rod["rodX"]):
+    if (direction and ballX < threeX) or (not direction and ballX > threeX):
         intercept = slope * ballX + b
-        if 0 <= intercept <= table["width"]:
+        if 0 <= intercept <= width:
             intercepts[3] = intercept
     
     return intercepts
@@ -49,6 +39,16 @@ def ball_speed(ball_vel_x, ball_vel_y):
 
 
 async def main():
+    goal_rod = {"maxActuation":180, "playerSpacing":210, "rodX":1125, "numPlayers":3}
+    two_rod = {"maxActuation":352, "playerSpacing":245, "rodX":975, "numPlayers":2}
+    five_rod = {"maxActuation":112, "playerSpacing":120, "rodX":675, "numPlayers":5}
+    three_rod = {"maxActuation":224, "playerSpacing":185, "rodX":375, "numPlayers":3} #check measurements
+    table = {"robot_goalX":1200, "robot_goalY":350, "player_goalX":1200, "player_goalY":350, "goalWidth":200, "width":685, "length":1200}
+    current_states = ["Block", "Block", "Block", "Block"]
+
+    commands = {"robot_goal_rod_displacement_command":0, "robot_goal_rod_angle_command":0, "robot_two_rod_displacement_command":0, "robot_two_rod_angle_command":0, "robot_five_rod_displacement_command":0, "robot_five_rod_angle_command":0, "robot_three_rod_displacement_command":0, "robot_three_rod_angle_command":0}
+    server_data = {"ballX": 0, "ballY": 0, "ball_vel_x":0, "ball_vel_y":0, "stop":False}
+
     try:
         HOST = '127.0.0.1'  # The server's hostname or IP address
         PORT = 5000       # The port used by the server
@@ -58,25 +58,27 @@ async def main():
         sock.connect((HOST, PORT))
 
         while True:
-            run = True
+            run = True 
             message = Message("GET")
-            message.data = server_data
+            message.data.update(server_data)
             start = time.perf_counter()
             sock.sendall(message.encode_to_send(True))
             recv_data = sock.recv(1024)
             received = Message("RECEIVED")
             received.decode_from_receive(recv_data)
-            server_data = received.data
-            print(server_data)
 
-            for key in server_data:
-                if server_data[key] == "not found":
-                    print("Server did not return all required data. MISSING: %s"%key)
-                    run = False
+            if "error" in received.data:
+                print(received.data["error"])
+                run = False
+            else:
+                for key in received.data:
+                    if received.data[key] == "not found" and key != "action":
+                        print("Server did not return all required data. MISSING: %s"%key)
+                        run = False
 
             if run:
                 speed = ball_speed(server_data["ball_vel_x"], server_data["ball_vel_y"])
-                intercepts = compute_intercepts(server_data["ballX"], server_data["ballY"], server_data["ball_vel_x"], server_data["ball_vel_y"])
+                intercepts = compute_intercepts(goal_rod["rodX"], two_rod["rodX"], five_rod["rodX"], three_rod["rodX"], table["width"], server_data["ballX"], server_data["ballY"], server_data["ball_vel_x"], server_data["ball_vel_y"])
 
                 output = await asyncio.gather(
                     compute_next_state(current_states[0],server_data["ballX"], goal_rod["rodX"], speed, server_data["stop"]),
@@ -102,8 +104,8 @@ async def main():
 
             print(commands)
             command_message = Message("POST")
-            command_message.data = commands
-            sock.sendall(message.encode_to_send(True))
+            command_message.data.update(commands)
+            sock.sendall(command_message.encode_to_send(True))
 
             total_time += time.perf_counter() - start
             number_of_runs += 1

@@ -2,9 +2,9 @@ import json
 import numpy as np
 
 class Message:
-    data = {}
 
     def __init__(self, action = ""):
+        self.data = {}
         self.data["action"] = action
 
     

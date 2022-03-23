@@ -7,6 +7,7 @@ class GameState:
 
     def update_game_data(self, new_data):
         self._game_data.update(new_data)
+        del self._game_data["action"]
         
 
     def get_game_data(self, return_data):

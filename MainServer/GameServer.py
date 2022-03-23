@@ -25,7 +25,7 @@ def service_connection(key, mask):
             data_size = int.from_bytes(recv_data, byteorder="big")
             recv_data = sock.recv(data_size)
             received = Message("RECEIVED")
-            received.decode_from_receive(recv_data)
+            received.decode_from_receive(recv_data) 
             data.outb = handle_message(received.data)
         else:
             print("closing connection to", data.addr)
@@ -38,22 +38,27 @@ def service_connection(key, mask):
             data.outb = data.outb[sent:]
 
 def handle_message(data):
-    if data["action"] == "POST":
-        game_state.update_game_data(data)
-        return ""
-    elif data["action"] == "GET":
-        return_data = game_state.get_game_data(data)
-        sending = Message()
-        sending.data = return_data
-        return sending.encode_to_send(False)
-    elif data["action"] == "DUMP":
-        return_data = game_state.get_all_data()
-        sending = Message()
-        sending.data = return_data
-        return sending.encode_to_send(False)
+    if "action" in data:
+        if data["action"] == "POST":
+            game_state.update_game_data(data)
+            return ""
+        elif data["action"] == "GET":
+            return_data = game_state.get_game_data(data)
+            sending = Message()
+            sending.data = return_data
+            return sending.encode_to_send(False)
+        elif data["action"] == "DUMP":
+            return_data = game_state.get_all_data()
+            sending = Message()
+            sending.data = return_data
+            return sending.encode_to_send(False)
+        else:
+            sending = Message()
+            sending.data = {"error":"Action not Understood"}
+            return sending.encode_to_send(False)
     else:
         sending = Message()
-        sending.data = {"error":"Action not Understood"}
+        sending.data = {"error":"No Action in Data"}
         return sending.encode_to_send(False)
         
     
