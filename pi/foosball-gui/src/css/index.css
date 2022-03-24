@@ -1,0 +1,28 @@
+.logo-position {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+.padding {
+  padding: 10px;
+}
+
+.player-banner--size {
+  height: 50%;
+}
+
+.logo-size {
+  width: 10%;
+  height: 10%;
+}
+
+.game-app--position {
+  display: flex;
+  flex-flow: column;
+  height: 100%;
+}
+
+.game-content--position {
+  height: 50%;
+}

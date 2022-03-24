@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'"
+    />
+    <meta
+      http-equiv="X-Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'"
+    />
+    <title>Foosbots GUI</title>
+    <link rel="stylesheet" href="./css/index.css" />
+    <link rel="stylesheet" href="./css/bootstrap.min.css" />
+  </head>
+  <body>
+    <div id="Header" class="container">
+      <header
+        class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom"
+      >
+        <a
+          href="/"
+          class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none"
+        >
+          <h3 class="card-title">Foosbots Foosball</h3>
+        </a>
+        <img src="../images/osu-brand.png" alt="OSU Logo" class="logo-size" />
+      </header>
+    </div>
+    <!--
+        Buttons
+        Scoreboard
+    -->
+    <div id="main-app" class="container">
+      <div class="row">
+        <div id="game-buttons" class="col padding">
+          <button type="button" class="btn btn-success">Start Game</button>
+          <button type="button" class="btn btn-danger">Stop Game</button>
+        </div>
+      </div>
+      <div class="row">
+        <div id="scoreboard" class="col game-content--position">
+          <div class="card" style="width: 18rem">
+            <div class="card-body">
+              <img src="../images/people.jpg" class="card-img-top" />
+              <h3 class="card-title">Player Score</h3>
+              <h5 class="card-subtitle mb-2 text-muted">--</h5>
+            </div>
+            <div class="card" style="width: 18rem">
+              <div class="card-body">
+                <img src="../images/robot.jpg" class="card-img-top" />
+                <h3 class="card-title">Robot Score</h3>
+                <h5 class="card-subtitle mb-2 text-muted">--</h5>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

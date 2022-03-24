@@ -117,7 +117,7 @@ def ballTracking():
 	# begin image detection
 	while True:
 		# performance testing
-		# startTime = cv2.getTickCount()
+		startTime = cv2.getTickCount()
 
 		# grab the current frame
 		# frame = vs.read()
@@ -150,7 +150,7 @@ def ballTracking():
 				real_y = np.multiply(y, width_cm_per_pixel_ratio) 
 				if not previous_time == 0: # i.e. not on the first sighting of the ball
 					(Vx, Vy) = calculateVelocity(real_x, real_y, previous_x, previous_y, current_time, previous_time)
-					sendDataToServer(real_x, real_y, Vx, Vy) # send the data to the server			
+					# sendDataToServer(real_x, real_y, Vx, Vy) # send the data to the server			
 	
 				# print(f"Ball Location (x, y): {real_x}mm, {real_y}mm") # TODO: print statement
 				# if not previous_time == 0:
@@ -171,22 +171,22 @@ def ballTracking():
 			continue
 
 		# performance check
-		# endTime = cv2.getTickCount()
-		# print(f" Processing Time (ms): {((endTime-startTime)/cv2.getTickFrequency())*1000}") 
+		endTime = cv2.getTickCount()
+		print(f" Processing Time (ms): {((endTime-startTime)/cv2.getTickFrequency())*1000}") 
 
 		# TODO: Remove this for final product
 		# show the frame to our screen
-		# cv2.imshow("Frame", undistorted_frame)
-		# key = cv2.waitKey(1) & 0xFF
+		cv2.imshow("Frame", undistorted_frame)
+		key = cv2.waitKey(1) & 0xFF
 		# if the 'q' key is pressed, stop the loop
-		# if key == ord("q"):
-		# 	break
+		if key == ord("q"):
+		 	break
 		
 		
 	
 	# stop camera
 	vs.stop()
 
-SOCKET = connectToServer()
+# SOCKET = connectToServer()
 ballTracking()
 cv2.destroyAllWindows()
