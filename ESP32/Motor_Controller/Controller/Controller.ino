@@ -11,7 +11,7 @@
 #define STARTING 5
 #define STOP_SWITCH 6
 
-const bool SERIAL_ON = true;
+const bool SERIAL_ON = false;
 const int PROCESS_DELAY = COM_DELAY;
 
 TaskHandle_t Main;

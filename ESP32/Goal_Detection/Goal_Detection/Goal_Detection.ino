@@ -4,10 +4,12 @@
 const bool SERIAL_ON = true;
 const int COM_DELAY = 50;
 
-void IRAM_ATTR playerGoalCount();
-void IRAM_ATTR robotGoalCount();
+const int BOUNCE = 10;
+
 void CANSender();
 void CANReceiver();
+void playerGoalCount();
+void robotGoalCount();
 
 typedef union {
     unsigned long value;
@@ -17,14 +19,17 @@ typedef union {
 unsigned long player_goals = 0;
 unsigned long robot_goals = 0;
 
+TaskHandle_t Sensor_Core;
+
+Digital_Sensor player_sensor = Digital_Sensor(PLAYER_SENSOR, BOUNCE);
+Digital_Sensor robot_sensor = Digital_Sensor(ROBOT_SENSOR, BOUNCE);
+
 void setup() {
     if (SERIAL_ON) {
         Serial.begin(115200);
         while (!Serial);
     }
-
-    attachInterrupt(PLAYER_SENSOR, playerGoalCount, RISING);
-    attachInterrupt(ROBOT_SENSOR, robotGoalCount, RISING);
+    xTaskCreatePinnedToCore(monitor, "sensor_monitor", 10000, NULL, 0, &Sensor_Core, 0);
 
     CAN.setPins(RXR_CAN, TXD_CAN);
 
@@ -35,6 +40,7 @@ void setup() {
     }
     if (SERIAL_ON) Serial.println("Starting CAN success");
     CAN.filter(0b00100000, 0x1ffffff0);
+    digitalWrite(ALL_GOOD_LED, HIGH);
 }
 
 double start_time = millis();
@@ -77,10 +83,28 @@ void CANReceiver(){
     }
 }
 
-void IRAM_ATTR playerGoalCount(){
-    player_goals += 1;
+void monitor(void * parameter){
+    for(;;){
+        player_sensor.sensorMonitor();
+        robot_sensor.sensorMonitor();
+        if (player_sensor.readSensor()) playerGoalCount();
+        if (robot_sensor.readSensor()) robotGoalCount();
+        delay(1);
+    }
 }
 
-void IRAM_ATTR robotGoalCount(){
+void playerGoalCount(){
+    player_goals += 1;
+    if (SERIAL_ON){
+        Serial.print("PLAYER GOAL: ");
+        Serial.println(player_goals);
+    }
+}
+
+void robotGoalCount(){
     robot_goals += 1;
+    if (SERIAL_ON) {
+        Serial.print("ROBOT GOAL: ");
+        Serial.println(robot_goals);
+    }
 }

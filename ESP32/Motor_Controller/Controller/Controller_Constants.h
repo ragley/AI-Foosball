@@ -22,10 +22,10 @@
 
 //Clockwise motor movement is positive
 
-const int DIRECTIONS[4][2] = {{-1, 1}, //3 rod
-                              {-1, 1}, //5 rod
-                              { 1, 1}, //2 rod
-                              {-1, 1}};//Goal rod
+const int DIRECTIONS[4][2] = {{-1,  1}, //3 rod
+                              {-1,  1}, //5 rod
+                              { 1, -1}, //2 rod
+                              {-1,  1}};//Goal rod
 
 const double MAX_TRANSLATIONS[4] = {224, //3 rod
                                    112, //5 rod
@@ -44,7 +44,7 @@ const double MAX_ACCELERATION_TRANSLATION = MAX_ACCELERATION_ROTATION*MM_PER_REV
 const double HOME_SPEED_TRANSLATION = MAX_SPEED_TRANSLATION / 10;
 const double HOME_SPEED_ROTATION = MAX_SPEED_ROTATION / 10;
 
-const int COM_DELAY = 20; //in ms
+const int COM_DELAY = 10; //in ms
 const int MAX_COM_DELAY = COM_DELAY * 5;
 
 const double SENSOR_PULSE_TRANSLATION_CONVERSION = 0;
