@@ -1,6 +1,8 @@
+from json import JSONDecodeError
 import socket
 import selectors
 import types
+import time
 from GameState import GameState
 from Message import Message
 
@@ -20,20 +22,33 @@ def service_connection(key, mask):
     sock = key.fileobj
     data = key.data
     if mask & selectors.EVENT_READ:
-        recv_data = sock.recv(4)  # Should be ready to read
-        if recv_data:
-            data_size = int.from_bytes(recv_data, byteorder="big")
-            recv_data = sock.recv(data_size)
-            received = Message("RECEIVED")
-            received.decode_from_receive(recv_data) 
-            data.outb = handle_message(received.data)
-        else:
-            print("closing connection to", data.addr)
-            sel.unregister(sock)
-            sock.close()
+        try:
+            recv_data = sock.recv(4)  # Should be ready to read
+            print(recv_data)
+            if recv_data:
+                data_size = int.from_bytes(recv_data, byteorder="big")
+                recv_data = sock.recv(data_size)
+                received = Message("RECEIVED")
+                received.decode_from_receive(recv_data) 
+                data.outb = handle_message(received.data)
+            else:
+                print("closing connection to", data.addr)
+                sel.unregister(sock)
+                sock.close()
+        except JSONDecodeError:
+            print("JSONDecodeError from ",data.addr, " with data ", recv_data)
+            sending = Message()
+            sending.data = {"error":"JSONDecodeError"}
+            data.outb = sending.encode_to_send(False)
+        except UnicodeDecodeError:
+            print("UnicodeDecodeError from ",data.addr, " with data ", recv_data)
+            sending = Message()
+            sending.data = {"error":"UnicodeDecodeError"}
+            data.outb = sending.encode_to_send(False)
     if mask & selectors.EVENT_WRITE:
         if data.outb:
-            print("Sending", repr(data.outb), "to", data.addr)
+            #print("Sending", repr(data.outb), "to", data.addr)
+            #print("Sending to ", data.addr)
             sent = sock.send(data.outb)  # Should be ready to write
             data.outb = data.outb[sent:]
 
@@ -63,7 +78,7 @@ def handle_message(data):
         
     
 
-host = "127.0.0.1"
+host = "192.168.0.1"
 port = 5000
 
 lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -72,6 +87,11 @@ lsock.listen()
 print("listening on", (host, port))
 lsock.setblocking(False)
 sel.register(lsock, selectors.EVENT_READ, data=None)
+long_handles = 1
+number_of_runs = 0
+total_time = 0.0
+total_long_time = 0.01
+max_handle = 0.0
 
 try:
     while True:
@@ -80,7 +100,22 @@ try:
             if key.data is None:
                 accept_wrapper(key.fileobj)
             else:
+                start = time.perf_counter()
                 service_connection(key, mask)
+                duration = time.perf_counter() - start
+
+                if duration * 1000 > 1:
+                    long_handles +=1
+                    total_long_time += duration
+                    if duration > max_handle:
+                        max_handle = duration
+                total_time += duration
+                number_of_runs +=1
+                # if number_of_runs % 10 == 0:
+                    # print("average time per message ", total_time / number_of_runs)
+                    # print("long handle percentage ",long_handles/number_of_runs*100,"%")
+                    # print("average long handle",total_long_time/long_handles)
+                    # print("max long handle",max_handle)
 except KeyboardInterrupt:
     print("caught keyboard interrupt, exiting")
 finally:
