@@ -20,9 +20,9 @@
 .game-app--position {
   display: flex;
   flex-flow: column;
-  height: 100%;
+  height: 70%;
 }
 
 .game-content--position {
-  height: 50%;
+  margin: auto;
 }
