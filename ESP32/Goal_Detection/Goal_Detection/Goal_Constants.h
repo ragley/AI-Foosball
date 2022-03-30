@@ -9,13 +9,16 @@
 
 class Digital_Sensor {
   public:
-    Digital_Sensor(int pin, int count){
+    Digital_Sensor(int pin, int count, int pin_mode, int pressedValue){
       READ = false;
       Pressed = false;
       PIN = pin;
       COUNT = count;
       highCounter = 0;
       lowCounter = 0;
+      PressedValue = pressedValue;
+      
+      pinMode(pin ,pin_mode);
     }
     bool readSensor(){
       if (READ) {
@@ -30,7 +33,7 @@ class Digital_Sensor {
     }
 
     void sensorMonitor(){
-      if (digitalRead(PIN) == HIGH){
+      if (digitalRead(PIN) == PressedValue){
         lowCounter = 0;
         highCounter += 1;
       } else {
@@ -53,4 +56,5 @@ class Digital_Sensor {
     int PIN;
     int highCounter;
     int lowCounter;
+    int PressedValue;
 };

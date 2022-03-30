@@ -21,8 +21,8 @@ unsigned long robot_goals = 0;
 
 TaskHandle_t Sensor_Core;
 
-Digital_Sensor player_sensor = Digital_Sensor(PLAYER_SENSOR, BOUNCE);
-Digital_Sensor robot_sensor = Digital_Sensor(ROBOT_SENSOR, BOUNCE);
+Digital_Sensor player_sensor = Digital_Sensor(PLAYER_SENSOR, BOUNCE, INPUT_PULLUP, LOW);
+Digital_Sensor robot_sensor = Digital_Sensor(ROBOT_SENSOR, BOUNCE, INPUT_PULLUP, LOW);
 
 void setup() {
     if (SERIAL_ON) {
