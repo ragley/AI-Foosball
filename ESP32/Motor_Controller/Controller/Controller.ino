@@ -82,10 +82,10 @@ void setup() {
     rotation_stepper.setAccelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
     rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
 
-    // if (!zero()){
-    //     digitalWrite(ALL_GOOD_LED, LOW);
-    //     while(1);
-    // }
+    if (!zero()){
+        digitalWrite(ALL_GOOD_LED, LOW);
+        while(1);
+    }
 
     translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
     rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
@@ -141,7 +141,7 @@ bool zero(){
 
 void setControl(){
     if (state == RUNNING) {
-        if (translation_desired > MAX_TRANSLATIONS[board_ID]) translation_desired = MAX_TRANSLATIONS[board_ID];
+        if (translation_desired >= MAX_TRANSLATIONS[board_ID]) translation_desired = MAX_TRANSLATIONS[board_ID] - 1;
         if (translation_desired < 0) translation_desired = 0;
         translation_stepper.setTargetPositionInMillimeters(DIRECTIONS[board_ID][TRANSLATION]*translation_desired);
         rotation_stepper.setTargetPositionInRevolutions(DIRECTIONS[board_ID][ROTATION]*rotation_desired);
@@ -154,7 +154,7 @@ void CANSender(){
     FLOAT_BYTE_UNION translation_measured_f;
     FLOAT_BYTE_UNION rotation_measured_f;
     translation_measured_f.value = (float)(DIRECTIONS[board_ID][TRANSLATION]*translation_stepper.getCurrentPositionInMillimeters());
-    rotation_measured_f.value = (float)(DIRECTIONS[board_ID][ROTATION]*rotation_stepper.getCurrentPositionInRevolutions());
+    rotation_measured_f.value = (float)(DIRECTIONS[board_ID][ROTATION]*rotation_stepper.getCurrentPositionInRevolutions()*DEGREES_PER_REVOLUTION);
     if (SERIAL_ON) Serial.print("Sent: (packet: 0b");
     if (state == RUNNING) {
         CAN.beginPacket(0b10010000 + (1 << board_ID));
@@ -233,11 +233,11 @@ void CANReceiver(){
                 if (SERIAL_ON) Serial.println("LESS THAN 8 BYTES RECEIVED)");
                 return;
             }
-            rotation_desired = (double)rotation_desired_f.value;
+            rotation_desired = (double)rotation_desired_f.value/DEGREES_PER_REVOLUTION;
             translation_desired = (double)translation_desired_f.value;
             if (SERIAL_ON){
                 Serial.print(" Rotation: ");
-                Serial.print(rotation_desired);
+                Serial.print(rotation_desired*DEGREES_PER_REVOLUTION);
                 Serial.print(" Translation: ");
                 Serial.print(translation_desired);
 //                Serial.print(" Rotation: ");
