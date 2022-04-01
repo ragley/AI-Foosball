@@ -1,10 +1,22 @@
+from curses.ascii import TAB
 import socket
 import time
 import asyncio
 import math
-from numpy import true_divide
 from rodFSM import compute_next_state, compute_command
 from Message import Message
+from FSMConstants import *
+
+def connect_to_server(host, port):
+	while True:	
+		try:
+			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			sock.connect((host, port))
+			return sock
+		except:
+			print("Cannot find server... trying again...")		
+			time.sleep(2)
+			continue
 
 def compute_intercepts(goalX, twoX, fiveX, threeX, width, ballX, ballY, ball_vel_x, ball_vel_y):
     intercepts = [-1, -1, -1, -1]
@@ -39,23 +51,17 @@ def ball_speed(ball_vel_x, ball_vel_y):
 
 
 async def main():
-    goal_rod = {"maxActuation":180, "playerSpacing":210, "rodX":1125, "numPlayers":3}
-    two_rod = {"maxActuation":352, "playerSpacing":245, "rodX":975, "numPlayers":2}
-    five_rod = {"maxActuation":112, "playerSpacing":120, "rodX":675, "numPlayers":5}
-    three_rod = {"maxActuation":224, "playerSpacing":185, "rodX":375, "numPlayers":3} #check measurements
-    table = {"robot_goalX":1200, "robot_goalY":350, "player_goalX":1200, "player_goalY":350, "goalWidth":200, "width":685, "length":1200}
     current_states = ["Block", "Block", "Block", "Block"]
 
     commands = {"robot_goal_rod_displacement_command":0, "robot_goal_rod_angle_command":0, "robot_two_rod_displacement_command":0, "robot_two_rod_angle_command":0, "robot_five_rod_displacement_command":0, "robot_five_rod_angle_command":0, "robot_three_rod_displacement_command":0, "robot_three_rod_angle_command":0}
-    server_data = {"ballX": 0, "ballY": 0, "ball_vel_x":0, "ball_vel_y":0, "stop":False}
+    server_data = {"ball_x":0, "ball_y":0, "ball_Vx":0, "ball_Vy":0, "stop":False}
 
     try:
-        HOST = '127.0.0.1'  # The server's hostname or IP address
-        PORT = 5000       # The port used by the server
+        host = LOCALHOST
+        port = PORT       
         number_of_runs = 0
         total_time = 0.0
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((HOST, PORT))
+        sock = connect_to_server(host,port)
 
         while True:
             run = True 
@@ -77,20 +83,19 @@ async def main():
                         run = False
 
             if run:
-                speed = ball_speed(server_data["ball_vel_x"], server_data["ball_vel_y"])
-                intercepts = compute_intercepts(goal_rod["rodX"], two_rod["rodX"], five_rod["rodX"], three_rod["rodX"], table["width"], server_data["ballX"], server_data["ballY"], server_data["ball_vel_x"], server_data["ball_vel_y"])
+                speed = ball_speed(received.data["ball_Vx"], received.data["ball_Vy"])
+                intercepts = compute_intercepts(GOAL_ROD["rodX"], TWO_ROD["rodX"], FIVE_ROD["rodX"], THREE_ROD["rodX"], TABLE["width"], received.data["ball_x"], received.data["ball_y"], received.data["ball_Vx"], received.data["ball_Vy"])
 
                 output = await asyncio.gather(
-                    compute_next_state(current_states[0],server_data["ballX"], goal_rod["rodX"], speed, server_data["stop"]),
-                    compute_next_state(current_states[1],server_data["ballX"], two_rod["rodX"], speed, server_data["stop"]),
-                    compute_next_state(current_states[2],server_data["ballX"], five_rod["rodX"], speed, server_data["stop"]),
-                    compute_next_state(current_states[3],server_data["ballX"], three_rod["rodX"], speed, server_data["stop"]),
-                    compute_command(current_states[0], goal_rod, server_data["ballX"], server_data["ballY"], table, speed, intercepts[0]),
-                    compute_command(current_states[1], two_rod, server_data["ballX"], server_data["ballY"], table, speed, intercepts[1]),
-                    compute_command(current_states[2], five_rod, server_data["ballX"], server_data["ballY"], table, speed, intercepts[2]),
-                    compute_command(current_states[3], three_rod, server_data["ballX"], server_data["ballY"], table, speed, intercepts[3])
-                )
-                print(output)
+                    compute_next_state(current_states[0],received.data["ball_x"], GOAL_ROD["rodX"], speed, received.data["stop"]),
+                    compute_next_state(current_states[1],received.data["ball_x"], TWO_ROD["rodX"], speed, received.data["stop"]),
+                    compute_next_state(current_states[2],received.data["ball_x"], FIVE_ROD["rodX"], speed, received.data["stop"]),
+                    compute_next_state(current_states[3],received.data["ball_x"], THREE_ROD["rodX"], speed, received.data["stop"]),
+                    compute_command(current_states[0], GOAL_ROD, received.data["ball_x"], received.data["ball_y"], TABLE, speed, intercepts[0]),
+                    compute_command(current_states[1], TWO_ROD, received.data["ball_x"], received.data["ball_y"], TABLE, speed, intercepts[1]),
+                    compute_command(current_states[2], FIVE_ROD, received.data["ball_x"], received.data["ball_y"], TABLE, speed, intercepts[2]),
+                    compute_command(current_states[3], THREE_ROD, received.data["ball_x"], received.data["ball_y"], TABLE, speed, intercepts[3])
+                )               
 
                 k = 0
                 for i in range(len(output)):
@@ -102,14 +107,16 @@ async def main():
                                 commands[list(commands.keys())[k]] = int(output[i][j])
                             k+=1
 
-            print(commands)
-            command_message = Message("POST")
-            command_message.data.update(commands)
-            sock.sendall(command_message.encode_to_send(True))
 
-            total_time += time.perf_counter() - start
-            number_of_runs += 1
-            print(total_time / number_of_runs)
+                command_message = Message("POST")
+                command_message.data.update(commands)
+                sock.sendall(command_message.encode_to_send(True))
+
+                total_time += time.perf_counter() - start
+                number_of_runs += 1
+                if number_of_runs % 100 == 0:
+                    print(output)
+                    print(total_time / number_of_runs)
     except KeyboardInterrupt:
         print("caught keyboard interrupt, exiting")
     finally:
