@@ -11,7 +11,7 @@
 #define STARTING 5
 #define STOP_SWITCH 6
 
-const bool SERIAL_ON = false;
+const bool SERIAL_ON = true;
 const int PROCESS_DELAY = COM_DELAY;
 
 TaskHandle_t Main;
@@ -44,6 +44,7 @@ bool rotationSensorActive = false;
 bool translationSensorActive = false;
 
 unsigned long message_time = 0;
+double start_time = 0;
 
 typedef union {
     float value;
@@ -53,7 +54,6 @@ typedef union {
 void setup() {
     if (SERIAL_ON) {
         Serial.begin(115200);
-        while (!Serial);
     }
     
     //Pin Initialization
@@ -77,18 +77,18 @@ void setup() {
     translation_stepper.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION);
     translation_stepper.setAccelerationInMillimetersPerSecondPerSecond(MAX_ACCELERATION_TRANSLATION);
     translation_stepper.setDecelerationInMillimetersPerSecondPerSecond(MAX_ACCELERATION_TRANSLATION);
+    translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
 
     rotation_stepper.setStepsPerRevolution(STEP_PULSE_ROTATION_CONVERSION);
     rotation_stepper.setAccelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
     rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
+    rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
 
+    while(digitalRead(ENABLE) == LOW);
     if (!zero()){
         digitalWrite(ALL_GOOD_LED, LOW);
         while(1);
     }
-
-    translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
-    rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
 
     // start the CAN bus at 500 kbps
     if (!CAN.begin(500E3)) {
@@ -100,10 +100,10 @@ void setup() {
     CAN.filter(0b1 << board_ID, 0b10100000 + (1 << board_ID) + 0x1fffff00);
     
     message_time = millis();
+    start_time = millis();
     evaluateState();
 }
 
-double start_time = millis();
 void loop() {
     evaluateState();
     CANReceiver();
@@ -114,18 +114,23 @@ void loop() {
     }
 }
 
+
 bool zero(){
-    if (SERIAL_ON) Serial.print("Zeroing Translation...");
-    bool success_translation = translation_stepper.moveToHomeInMillimeters(DIRECTIONS[board_ID][TRANSLATION]*-1, HOME_SPEED_TRANSLATION, MAX_TRANSLATIONS[board_ID], TRANSLATION_DRIVER_ZERO);
+    if (SERIAL_ON) Serial.print("Zeroing Translation");
+    // Serial.print("ROTATION_DRIVER_ZERO: ");
+    // Serial.print(digitalRead(ROTATION_DRIVER_ZERO));
+    // Serial.print(" TRANSLATION_DRIVER_ZERO: ");
+    // Serial.println(digitalRead(TRANSLATION_DRIVER_ZERO));
+    bool success_translation = zeroTrans();
     if (!success_translation) {
         if (SERIAL_ON) Serial.println(" Failed");
         return success_translation;
     }
     if (SERIAL_ON) {
         Serial.println(" Success");
-        Serial.print("Zeroing Rotation...");
+        Serial.print("Zeroing Rotation");
     }
-    bool success_rotation = rotation_stepper.moveToHomeInRevolutions(DIRECTIONS[board_ID][ROTATION]*-1, HOME_SPEED_ROTATION, 2, ROTATION_DRIVER_ZERO);
+    bool success_rotation = zeroRev();
     if (!success_rotation) {
         if (SERIAL_ON) Serial.println(" Failed");
         return success_rotation;
@@ -137,6 +142,102 @@ bool zero(){
     if (SERIAL_ON && success) Serial.println(" Success");
     else if(SERIAL_ON) Serial.println(" Failed");
     return success;
+}
+
+bool zeroRev(){
+    int timer_serial = 0;
+    int timer_bounce = 0;
+    int count = 0;
+    bool success = false;
+    pinMode(ROTATION_DRIVER_ZERO, INPUT);
+    rotation_stepper.setCurrentPositionAsHomeAndStop();
+    rotation_stepper.setSpeedInRevolutionsPerSecond(HOME_SPEED_ROTATION);
+    double distance = 2*DIRECTIONS[board_ID][ROTATION];
+    rotation_stepper.setTargetPositionInRevolutions(distance);
+    while((!rotation_stepper.processMovement() && (count <= 10)) || (digitalRead(ENABLE) == LOW)){
+        if (digitalRead(ENABLE) == LOW) {
+            rotation_stepper.emergencyStop(false);
+        } else {
+            rotation_stepper.setTargetPositionInRevolutions(distance);
+            if (millis() - timer_bounce > 1) {
+                timer_bounce = millis();
+                if (digitalRead(ROTATION_DRIVER_ZERO) == LOW) {
+                    count += 1;
+                } else {
+                    count = 0;
+                }
+            }
+            if (count > 10) {
+                success = true;
+            }
+        }
+
+        if (SERIAL_ON && millis() - timer_serial > 1000) {
+            timer_serial = millis();
+            if (digitalRead(ENABLE) == LOW) Serial.print("DISABLED");
+            else Serial.print(".");
+        }
+
+
+        delay(1);
+    }
+    if (digitalRead(ROTATION_DRIVER_ZERO) == LOW) {
+        rotation_stepper.setCurrentPositionAsHomeAndStop();
+        return true;
+    } else {
+        rotation_stepper.emergencyStop();
+        return false;
+    }
+    
+}
+
+bool zeroTrans(){
+    int timer_serial = 0;
+    int timer_bounce = 0;
+    int count = 0;
+    bool success = false;
+    pinMode(TRANSLATION_DRIVER_ZERO, INPUT);
+    translation_stepper.setCurrentPositionAsHomeAndStop();
+    translation_stepper.setSpeedInMillimetersPerSecond(HOME_SPEED_ROTATION);
+    double distance = DIRECTIONS[board_ID][TRANSLATION]*-1*MAX_TRANSLATIONS[board_ID];
+    translation_stepper.setTargetPositionInMillimeters(distance);
+    while((!translation_stepper.processMovement() && (count <= 10)) || (digitalRead(ENABLE) == LOW)){
+        if (digitalRead(ENABLE) == LOW) {
+            translation_stepper.emergencyStop(false);
+        } else {
+            translation_stepper.setTargetPositionInMillimeters(distance);
+            if (millis() - timer_bounce > 1) {
+                timer_bounce = millis();
+                if (digitalRead(TRANSLATION_DRIVER_ZERO) == LOW) {
+                    count += 1;
+                } else {
+                    count = 0;
+                }
+            }
+            if (count > 10) {
+                success = true;
+            }
+        }
+
+        if (SERIAL_ON && millis() - timer_serial > 1000) {
+            timer_serial = millis();
+            if (digitalRead(ENABLE) == LOW) Serial.print("DISABLED");
+            else Serial.print(".");
+        }
+
+
+        delay(1);
+    }
+    if (success) {
+        translation_stepper.setCurrentPositionAsHomeAndStop();
+        translation_stepper.setTargetPositionInMillimeters(DIRECTIONS[board_ID][TRANSLATION]);
+        while(!translation_stepper.processMovement());
+        translation_stepper.setCurrentPositionAsHomeAndStop();
+        return true;
+    } else {
+        translation_stepper.emergencyStop();
+        return false;
+    }
 }
 
 void setControl(){

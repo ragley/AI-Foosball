@@ -20,12 +20,12 @@
 #define ROTATION 1
 #define TRANSLATION 0
 
-const int DIRECTIONS[4][2] = {{-1, 1}, //3 rod
-                              {-1, 1}, //5 rod
-                              { 1, 1}, //2 rod
-                              {-1, 1}};//Goal rod
+//Clockwise motor movement is positive
 
-
+const int DIRECTIONS[4][2] = {{ 1, -1}, //3 rod
+                              { -1, -1}, //5 rod
+                              {-1,  1}, //2 rod
+                              { 1, -1}};//Goal rod
 
 const double MAX_TRANSLATIONS[4] = {224, //3 rod
                                    112, //5 rod
@@ -33,19 +33,20 @@ const double MAX_TRANSLATIONS[4] = {224, //3 rod
                                    180};//Goal rod
 
 const double MM_PER_REVOLUTION = 29.924;
+const double DEGREES_PER_REVOLUTION = 360;
 
 const double STEP_PULSE_ROTATION_CONVERSION = 1600; //pulse per rotation (200 pulses on the motor with the driver set at 3200) 
-const double STEP_PULSE_TRANSLATION_CONVERSION = STEP_PULSE_ROTATION_CONVERSION/MM_PER_REVOLUTION; //pulse per mm 
-//const double STEP_PULSE_TRANSLATION_CONVERSION = 8*1/0.474; //pulse per mm (8 corrects the resolution as above)
+const double STEP_PULSE_TRANSLATION_CONVERSION = STEP_PULSE_ROTATION_CONVERSION/MM_PER_REVOLUTION; //pulse per mm
 
-const double MAX_SPEED_ROTATION = 89; //rotations per second
+//const double MAX_SPEED_ROTATION = 89; //rotations per second
+const double MAX_SPEED_ROTATION = 2; //rotations per second
 const double MAX_SPEED_TRANSLATION = MAX_SPEED_ROTATION*MM_PER_REVOLUTION; //mm per second
 const double MAX_ACCELERATION_ROTATION = 500; // rotations per second per second
 const double MAX_ACCELERATION_TRANSLATION = MAX_ACCELERATION_ROTATION*MM_PER_REVOLUTION; // mm per second per second
-const double HOME_SPEED_TRANSLATION = MAX_SPEED_TRANSLATION / 10;
-const double HOME_SPEED_ROTATION = MAX_SPEED_ROTATION / 10;
+const double HOME_SPEED_TRANSLATION = MAX_SPEED_TRANSLATION / 5;
+const double HOME_SPEED_ROTATION = MAX_SPEED_ROTATION / 5;
 
-const int COM_DELAY = 20; //in ms
+const int COM_DELAY = 10; //in ms
 const int MAX_COM_DELAY = COM_DELAY * 5;
 
 const double SENSOR_PULSE_TRANSLATION_CONVERSION = 0;
