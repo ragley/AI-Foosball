@@ -77,18 +77,18 @@ void setup() {
     translation_stepper.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION[board_ID]);
     translation_stepper.setAccelerationInMillimetersPerSecondPerSecond(MAX_ACCELERATION_TRANSLATION);
     translation_stepper.setDecelerationInMillimetersPerSecondPerSecond(MAX_ACCELERATION_TRANSLATION);
-    translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
 
     rotation_stepper.setStepsPerRevolution(STEP_PULSE_ROTATION_CONVERSION);
     rotation_stepper.setAccelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
     rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
-    rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
 
     while(digitalRead(ENABLE) == LOW);
     if (!zero()){
         digitalWrite(ALL_GOOD_LED, LOW);
         while(1);
     }
+    translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
+    rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
 
     // start the CAN bus at 500 kbps
     if (!CAN.begin(500E3)) {
@@ -357,6 +357,8 @@ void evaluateState(){
     } else if (state == STOP_SWITCH) {
         if (digitalRead(ENABLE) == HIGH){
             zero();
+            translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
+            rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
             state = DISABLED;
         }
     }

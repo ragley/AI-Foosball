@@ -38,14 +38,14 @@ const double STEP_PULSE_ROTATION_CONVERSION = 1600; //pulse per rotation (200 pu
 const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {46.5948,
                                                     48.7052,
                                                     44.2853,
-                                                    45.7821}; //pulse per mm 
+                                                    46.27}; //pulse per mm
 
 //const double MAX_SPEED_ROTATION = 89; //rotations per second
 const double MAX_SPEED_ROTATION = 20; //rotations per second
-const double MAX_SPEED_TRANSLATION = 100; //mm per second
+const double MAX_SPEED_TRANSLATION = 200; //mm per second
 const double MAX_ACCELERATION_ROTATION = 500; // rotations per second per second
-const double MAX_ACCELERATION_TRANSLATION = 1500; // mm per second per second
-const double HOME_SPEED_TRANSLATION = MAX_SPEED_TRANSLATION / 10;
+const double MAX_ACCELERATION_TRANSLATION = 2000; // mm per second per second
+const double HOME_SPEED_TRANSLATION = MAX_SPEED_TRANSLATION / 2;
 const double HOME_SPEED_ROTATION = MAX_SPEED_ROTATION / 10;
 
 const int COM_DELAY = 10; //in ms
