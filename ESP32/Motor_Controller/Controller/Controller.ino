@@ -154,22 +154,17 @@ bool zeroRev(){
     rotation_stepper.setSpeedInRevolutionsPerSecond(HOME_SPEED_ROTATION);
     double distance = 2*DIRECTIONS[board_ID][ROTATION];
     rotation_stepper.setTargetPositionInRevolutions(distance);
-    while((!rotation_stepper.processMovement() && (count <= 10)) || (digitalRead(ENABLE) == LOW)){
-        if (digitalRead(ENABLE) == LOW) {
-            rotation_stepper.emergencyStop(false);
-        } else {
-            rotation_stepper.setTargetPositionInRevolutions(distance);
-            if (millis() - timer_bounce > 1) {
-                timer_bounce = millis();
-                if (digitalRead(ROTATION_DRIVER_ZERO) == LOW) {
-                    count += 1;
-                } else {
-                    count = 0;
-                }
+    while(!rotation_stepper.processMovement() && (count <= 10)){
+        if (millis() - timer_bounce > 1) {
+            timer_bounce = millis();
+            if (digitalRead(ROTATION_DRIVER_ZERO) == LOW) {
+                count += 1;
+            } else {
+                count = 0;
             }
-            if (count > 10) {
-                success = true;
-            }
+        }
+        if (count > 10) {
+            success = true;
         }
 
         if (SERIAL_ON && millis() - timer_serial > 1000) {
@@ -201,22 +196,17 @@ bool zeroTrans(){
     translation_stepper.setSpeedInMillimetersPerSecond(HOME_SPEED_ROTATION);
     double distance = DIRECTIONS[board_ID][TRANSLATION]*-1*MAX_TRANSLATIONS[board_ID];
     translation_stepper.setTargetPositionInMillimeters(distance);
-    while((!translation_stepper.processMovement() && (count <= 10)) || (digitalRead(ENABLE) == LOW)){
-        if (digitalRead(ENABLE) == LOW) {
-            translation_stepper.emergencyStop(false);
-        } else {
-            translation_stepper.setTargetPositionInMillimeters(distance);
-            if (millis() - timer_bounce > 1) {
-                timer_bounce = millis();
-                if (digitalRead(TRANSLATION_DRIVER_ZERO) == LOW) {
-                    count += 1;
-                } else {
-                    count = 0;
-                }
+    while(!translation_stepper.processMovement() && (count <= 20)){
+        if (millis() - timer_bounce > 1) {
+            timer_bounce = millis();
+            if (digitalRead(TRANSLATION_DRIVER_ZERO) == LOW) {
+                count += 1;
+            } else {
+                count = 0;
             }
-            if (count > 10) {
-                success = true;
-            }
+        }
+        if (count > 10) {
+            success = true;
         }
 
         if (SERIAL_ON && millis() - timer_serial > 1000) {
@@ -224,8 +214,6 @@ bool zeroTrans(){
             if (digitalRead(ENABLE) == LOW) Serial.print("DISABLED");
             else Serial.print(".");
         }
-
-
         delay(1);
     }
     if (success) {
