@@ -74,7 +74,7 @@ void setup() {
         Serial.println(board_ID);
     }
 
-    translation_stepper.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION);
+    translation_stepper.setStepsPerMillimeter(STEP_PULSE_TRANSLATION_CONVERSION[board_ID]);
     translation_stepper.setAccelerationInMillimetersPerSecondPerSecond(MAX_ACCELERATION_TRANSLATION);
     translation_stepper.setDecelerationInMillimetersPerSecondPerSecond(MAX_ACCELERATION_TRANSLATION);
     translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
@@ -117,10 +117,6 @@ void loop() {
 
 bool zero(){
     if (SERIAL_ON) Serial.print("Zeroing Translation");
-    // Serial.print("ROTATION_DRIVER_ZERO: ");
-    // Serial.print(digitalRead(ROTATION_DRIVER_ZERO));
-    // Serial.print(" TRANSLATION_DRIVER_ZERO: ");
-    // Serial.println(digitalRead(TRANSLATION_DRIVER_ZERO));
     bool success_translation = zeroTrans();
     if (!success_translation) {
         if (SERIAL_ON) Serial.println(" Failed");
@@ -329,22 +325,6 @@ void CANReceiver(){
                 Serial.print(rotation_desired*DEGREES_PER_REVOLUTION);
                 Serial.print(" Translation: ");
                 Serial.print(translation_desired);
-//                Serial.print(" Rotation: ");
-//                Serial.print(rotation_desired_f.bytes[0],HEX);
-//                Serial.print(" ");
-//                Serial.print(rotation_desired_f.bytes[1],HEX);
-//                Serial.print(" ");
-//                Serial.print(rotation_desired_f.bytes[2],HEX);
-//                Serial.print(" ");
-//                Serial.print(rotation_desired_f.bytes[3],HEX);
-//                Serial.print(" Translation: ");
-//                Serial.print(translation_desired_f.bytes[0],HEX);
-//                Serial.print(" ");
-//                Serial.print(translation_desired_f.bytes[1],HEX);
-//                Serial.print(" ");
-//                Serial.print(translation_desired_f.bytes[2],HEX);
-//                Serial.print(" ");
-//                Serial.print(translation_desired_f.bytes[3],HEX);
             }
         }
         if (SERIAL_ON) Serial.println(")");
