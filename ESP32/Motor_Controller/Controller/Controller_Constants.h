@@ -22,29 +22,35 @@
 
 //Clockwise motor movement is positive
 
-const int DIRECTIONS[4][2] = {{-1,  1}, //3 rod
-                              {-1,  1}, //5 rod
-                              { 1, -1}, //2 rod
-                              {-1,  1}};//Goal rod
+const int DIRECTIONS[4][2] = {{ -1,  1}, //3 rod
+  { -1,  1}, //5 rod
+  { 1, -1}, //2 rod
+  { -1,  1}
+};//Goal rod
 
-const double MAX_TRANSLATIONS[4] = {181.23 -1, //3 rod
-                                   115.265 -1, //5 rod
-                                   354 -1,     //2 rod
-                                   226.77 -1}; //Goal rod
+const double MAX_TRANSLATIONS[4] = {181.23, //3 rod
+                                    115.265, //5 rod
+                                    356,    //2 rod
+                                    228.77}; //Goal rod
 
 const double DEGREES_PER_REVOLUTION = 360;
 
-const double STEP_PULSE_ROTATION_CONVERSION = 1600; //pulse per rotation (200 pulses on the motor with the driver set at 3200) 
-const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {46.5948,
-                                                    48.7052,
-                                                    44.2853,
-                                                    46.27}; //pulse per mm
+const double STEP_PULSE_ROTATION_CONVERSION = 1600; //pulse per rotation (200 pulses on the motor with the driver set at 3200)
+//const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {46.5948,
+//                                                    48.7052,
+//                                                    44.2853,
+//                                                    46.27}; //pulse per mm
+
+const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {41.27, //3 rod
+                                                    41.27,  //5 rod
+                                                    41.27,  //2 rod
+                                                    41.27}; //Goal rod pulse per mm
 
 //const double MAX_SPEED_ROTATION = 89; //rotations per second
 const double MAX_SPEED_ROTATION = 20; //rotations per second
 const double MAX_SPEED_TRANSLATION = 200; //mm per second
-const double MAX_ACCELERATION_ROTATION = 500; // rotations per second per second
-const double MAX_ACCELERATION_TRANSLATION = 2000; // mm per second per second
+const double MAX_ACCELERATION_ROTATION = MAX_SPEED_ROTATION * 2; // rotations per second per second
+const double MAX_ACCELERATION_TRANSLATION = MAX_SPEED_TRANSLATION; // mm per second per second
 const double HOME_SPEED_TRANSLATION = MAX_SPEED_TRANSLATION / 2;
 const double HOME_SPEED_ROTATION = MAX_SPEED_ROTATION / 10;
 
