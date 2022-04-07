@@ -18,6 +18,10 @@ import time
 import json
 import socket
 
+# Dimensions of the Table (these are VERY important)
+TABLE_LENGTH = 1193.8
+TABLE_WIDTH = 684.2
+
 # camera fisheye calibration arrays
 # These are camara specific! Use fisheye_calibration.py to find these numbers!
 DIM = (640, 360) # dimensions of the camera (in pixels)
@@ -62,8 +66,8 @@ def sendDataToServer(x, y, Vx, Vy):
 
 
 def calculateVelocity(x, y, previous_x, previous_y, t1, t2):
-	Vx = (x - previous_x)/(t1-t2)
-	Vy = (y - previous_y)/(t1-t2)
+	Vx = (x - previous_x)/((t1-t2)*1000)
+	Vy = (y - previous_y)/((t1-t2)*1000)
 	return (Vx, Vy)
 
 def processImage(undistorted_frame):
@@ -91,10 +95,8 @@ def processImage(undistorted_frame):
 
 def ballTracking():
 	# calculate the cm to pixel ratio
-	table_length = 1193.8
-	table_width = 684.2
-	length_cm_per_pixel_ratio = np.divide(table_length, DIM[0]) # x value ratio
-	width_cm_per_pixel_ratio = np.divide(table_width, DIM[1]) # y value ratio
+	length_cm_per_pixel_ratio = np.divide(TABLE_LENGTH, DIM[0]) # x value ratio
+	width_cm_per_pixel_ratio = np.divide(TABLE_WIDTH, DIM[1]) # y value ratio
 
 	# mapping for fisheye calibration	
 	map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
@@ -113,6 +115,7 @@ def ballTracking():
 	previous_x = 0
 	previous_y = 0
 	previous_time = 0
+	frame_delay = 0
 
 	# begin image detection
 	while True:
@@ -148,18 +151,24 @@ def ballTracking():
 				# x, y are pixel values, convert to cm values
 				real_x = np.multiply(x, length_cm_per_pixel_ratio)
 				real_y = np.multiply(y, width_cm_per_pixel_ratio) 
-				if not previous_time == 0: # i.e. not on the first sighting of the ball
-					(Vx, Vy) = calculateVelocity(real_x, real_y, previous_x, previous_y, current_time, previous_time)
-					# sendDataToServer(real_x, real_y, Vx, Vy) # send the data to the server			
+				if not previous_time == 0: # i.e. not on the first sighting of the bal
+					if abs(real_x-previous_x) >= 3 or abs(real_y-previous_y) > 3 :
+						(Vx, Vy) = calculateVelocity(real_x, real_y, previous_x, previous_y, current_time, previous_time)
+					
+					else:
+						Vx = 0.0
+						Vy = 0.0
+					# sendDataToServer(real_x, real_y, Vx, Vy) # send the data to the server
 	
-				# print(f"Ball Location (x, y): {real_x}mm, {real_y}mm") # TODO: print statement
-				# if not previous_time == 0:
-				# 	print(f" Ball Speed (Vx, Vy): {Vx}mm/s, {Vy}mm/s")
+				print(f"Ball Location (x, y): {real_x}mm, {real_y}mm") # TODO: print statement
+				if not previous_time == 0:
+					# print(f" Current_Time: {current_time} \n Previous Time: {previous_time}")
+					print(f" Ball Speed (Vx, Vy): {Vx}mm/ms, {Vy}mm/ms")
 				
 				# update previous x, y, time variables
 				previous_x = real_x
 				previous_y = real_y
-				previous_time = current_time
+				previous_time = current_time	
 
 				# draw a dot on the ball, only proceed if the radius meets a minimum size
 				if radius > 1:

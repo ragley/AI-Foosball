@@ -18,6 +18,10 @@ import time
 import json
 import socket
 
+# Dimensions of the Table (these are VERY important)
+TABLE_LENGTH = 1193.8
+TABLE_WIDTH = 694.2
+
 # camera fisheye calibration arrays
 # These are camara specific! Use fisheye_calibration.py to find these numbers!
 DIM = (640, 360) # dimensions of the camera (in pixels)
@@ -51,14 +55,16 @@ def sendDataToServer(x, y, Vx, Vy):
 	}
 	data.update(location_data)
 	json_data = json.dumps(data)
+	print(json_data) # TODO: Print Statement
 	json_bytes = bytes(json_data, encoding="utf-8")
 	global SOCKET 
-	try:
+	# try:
 		# Send the data to the Server
-		SOCKET.sendall(len(json_bytes).to_bytes(4, byteorder="big") + json_bytes)
-	except (ConnectionResetError, BrokenPipeError): 
+	SOCKET.sendall(len(json_bytes).to_bytes(4, byteorder="big") + json_bytes)
+	# except (ConnectionResetError, BrokenPipeError): 
 		# If the server shuts down mid game, we don't want to crash
-		SOCKET = connectToServer()
+	# 	SOCKET = None
+	# 	SOCKET = connectToServer()
 
 
 def calculateVelocity(x, y, previous_x, previous_y, t1, t2):
@@ -91,10 +97,8 @@ def processImage(undistorted_frame):
 
 def ballTracking():
 	# calculate the cm to pixel ratio
-	table_length = 1193.8
-	table_width = 684.2
-	length_cm_per_pixel_ratio = np.divide(table_length, DIM[0]) # x value ratio
-	width_cm_per_pixel_ratio = np.divide(table_width, DIM[1]) # y value ratio
+	length_cm_per_pixel_ratio = np.divide(TABLE_LENGTH, DIM[0]) # x value ratio
+	width_cm_per_pixel_ratio = np.divide(TABLE_WIDTH, DIM[1]) # y value ratio
 
 	# mapping for fisheye calibration	
 	map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
@@ -113,6 +117,7 @@ def ballTracking():
 	previous_x = 0
 	previous_y = 0
 	previous_time = 0
+	frame_delay = 0
 
 	# begin image detection
 	while True:
@@ -149,7 +154,12 @@ def ballTracking():
 				real_x = np.multiply(x, length_cm_per_pixel_ratio)
 				real_y = np.multiply(y, width_cm_per_pixel_ratio) 
 				if not previous_time == 0: # i.e. not on the first sighting of the ball
-					(Vx, Vy) = calculateVelocity(real_x, real_y, previous_x, previous_y, current_time, previous_time)
+					if abs(real_x-previous_x) >= 3 or abs(real_y-previous_y) > 3 :
+						(Vx, Vy) = calculateVelocity(real_x, real_y, previous_x, previous_y, current_time, previous_time)
+					
+					else:
+						Vx = 0.0
+						Vy = 0.0
 					sendDataToServer(real_x, real_y, Vx, Vy) # send the data to the server			
 	
 				# print(f"Ball Location (x, y): {real_x}mm, {real_y}mm") # TODO: print statement
@@ -160,12 +170,13 @@ def ballTracking():
 				previous_x = real_x
 				previous_y = real_y
 				previous_time = current_time
+				frame_delay = frame_delay + 1
 
 				# draw a dot on the ball, only proceed if the radius meets a minimum size
-				if radius > 1:
+				# if radius > 1:
 					# draw the circle and centroid on the frame,
 					# cv2.circle(undistorted_frame, (int(x), int(x)), int(radius),(0, 255, 255), 3)
-				 	cv2.circle(undistorted_frame, (int(x), int(y)), 3, (255, 0, 255), -1)
+				 	# cv2.circle(undistorted_frame, (int(x), int(y)), 3, (255, 0, 255), -1)
 		except (ZeroDivisonError):
 			# to avoid crashing on divideByZero error
 			continue

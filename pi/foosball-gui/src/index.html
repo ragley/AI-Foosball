@@ -2,14 +2,6 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
     <title>Foosbots GUI</title>
     <link rel="stylesheet" href="./css/index.css" />
     <link rel="stylesheet" href="./css/bootstrap.min.css" />
@@ -20,7 +12,7 @@
       <header class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom">
           <h3 class="card-title">Foosbots Foosball</h3>
         </a>
-        <img src="../images/osu-brand.png" alt="OSU Logo" class="logo-size" />
+        <img src="../images/osu-brand.png" alt="OSU Logo" id="osuLogo" class="logo-size" />
       </header>
     </div>
       <div class="row">
@@ -31,13 +23,13 @@
       </div>
       <div class="row">
         <div id="scoreboard" class="col game-content--position">
-          <div class="card" style="width: 18rem">
+          <div class="card">
             <div class="card-body">
               <img src="../images/people.jpg" class="card-img-top" />
               <h3 class="card-title">Player Score</h3>
               <h3 id="playerScore" class="card-subtitle mb-2 text-muted">--</h3>
             </div>
-            <div class="card" style="width: 18rem">
+            <div class="card">
               <div class="card-body">
                 <img src="../images/robot.jpg" class="card-img-top" />
                 <h3 class="card-title">Robot Score</h3>
@@ -48,6 +40,34 @@
         </div>
       </div>
     </div>
-    <!-- <script src="./renderer.js"></script> -->
+    
+    <!--Dev Modal-->
+    <!-- <button id="devModalOpenBtn" type="button" class="hidden-button">Dev Modal</button> -->
+    
+    <div id="devModal" class="dev-modal">
+      <div class="dev-modal-content">
+        <span id="devModalCloseBtn" class="dev-modal-close">&times;</span>
+        <div id="devModalContentText"></div>
+      </div>
+    </div>
+    
+    <!-- Bootstrap Modal...
+    <button id="devModalOpenBtn" type="button" data-toggle="modal" data-target="#devModal">Dev Modal</button>
+    <div id="devModal" class="model fade" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">DEBUG: Game State</h5>
+          </div>
+          <div id="devModalContent" class="modal-body">
+            Dump here...
+          </div>
+          <div id="devModalFooter" class="modal-footer">
+            <button id="devModalCloseBtn" type="button" class="btn-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    -->
   </body>
 </html>
