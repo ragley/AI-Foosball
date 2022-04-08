@@ -148,7 +148,7 @@ bool zeroRev(){
     int timer_bounce = 0;
     int count = 0;
     bool success = false;
-    pinMode(ROTATION_DRIVER_ZERO, INPUT);
+    pinMode(ROTATION_DRIVER_ZERO, INPUT_PULLUP);
     rotation_stepper.setCurrentPositionAsHomeAndStop();
     rotation_stepper.setSpeedInRevolutionsPerSecond(HOME_SPEED_ROTATION);
     double distance = 2*DIRECTIONS[board_ID][ROTATION];
@@ -165,7 +165,6 @@ bool zeroRev(){
         if (count > 10) {
             success = true;
         }
-
         if (SERIAL_ON && millis() - timer_serial > 1000) {
             timer_serial = millis();
             if (digitalRead(ENABLE) == LOW) Serial.print("DISABLED");
@@ -190,7 +189,7 @@ bool zeroTrans(){
     int timer_bounce = 0;
     int count = 0;
     bool success = false;
-    pinMode(TRANSLATION_DRIVER_ZERO, INPUT);
+    pinMode(TRANSLATION_DRIVER_ZERO, INPUT_PULLUP);
     translation_stepper.setCurrentPositionAsHomeAndStop();
     translation_stepper.setSpeedInMillimetersPerSecond(HOME_SPEED_TRANSLATION);
     double distance = DIRECTIONS[board_ID][TRANSLATION]*-1*MAX_TRANSLATIONS[board_ID];

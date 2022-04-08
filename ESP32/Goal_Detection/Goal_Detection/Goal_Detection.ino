@@ -24,6 +24,8 @@ TaskHandle_t Sensor_Core;
 Digital_Sensor player_sensor = Digital_Sensor(PLAYER_SENSOR, BOUNCE, INPUT_PULLUP, LOW);
 Digital_Sensor robot_sensor = Digital_Sensor(ROBOT_SENSOR, BOUNCE, INPUT_PULLUP, LOW);
 
+double start_time;
+
 void setup() {
     if (SERIAL_ON) {
         Serial.begin(115200);
@@ -33,7 +35,7 @@ void setup() {
 
     CAN.setPins(RXR_CAN, TXD_CAN);
 
-    if (!CAN.begin(500E3)) {
+    if (!CAN.begin(1000E3)) {
         if (SERIAL_ON) Serial.println("Starting CAN failed!");
         digitalWrite(ALL_GOOD_LED, LOW);
         while (1);
@@ -41,9 +43,9 @@ void setup() {
     if (SERIAL_ON) Serial.println("Starting CAN success");
     CAN.filter(0b00100000, 0x1ffffff0);
     digitalWrite(ALL_GOOD_LED, HIGH);
+    start_time = millis();
 }
 
-double start_time = millis();
 void loop() {
     CANReceiver();
     if (millis() - start_time > COM_DELAY){
