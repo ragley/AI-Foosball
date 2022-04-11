@@ -45,22 +45,14 @@
     <!-- <button id="devModalOpenBtn" type="button" class="hidden-button">Dev Modal</button> -->
     
     <div id="devModal" class="dev-modal">
-      <div class="dev-modal-content">
-        <span id="devModalCloseBtn" class="dev-modal-close">&times;</span>
-        <div id="devModalContentText"></div>
-      </div>
-    </div>
-    
-    <!-- Bootstrap Modal...
-    <button id="devModalOpenBtn" type="button" data-toggle="modal" data-target="#devModal">Dev Modal</button>
-    <div id="devModal" class="model fade" tabindex="-1" role="dialog">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">DEBUG: Game State</h5>
           </div>
-          <div id="devModalContent" class="modal-body">
-            Dump here...
+          <div class="modal-body">
+            <!-- <span id="devModalCloseBtn" class="dev-modal-close">&times;</span> -->
+            <pre id="devModalContentText"></pre>
           </div>
           <div id="devModalFooter" class="modal-footer">
             <button id="devModalCloseBtn" type="button" class="btn-secondary" data-dismiss="modal">Close</button>
@@ -68,6 +60,39 @@
         </div>
       </div>
     </div>
-    -->
+    
+    <!-- Difficulty Modal -->
+    
+    <div id="difficultyModal" class="difficulty-modal">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Select Difficulty Level</h5>
+          </div>
+          <div class="modal-body">
+            <div id="difficultyBtns">
+              <div class="row">
+                <div class="col-sm center">
+                  <button id="easyBtn" type="button" class="difficulty-btn btn-success">Easy</button>
+                </div>
+                
+              </div>
+              <div class="row">
+                <div class="col-sm center">
+                  <button id="mediumBtn" type="button" class="difficulty-btn btn-warning">Medium</button>
+                </div>
+                
+              </div>
+              <div class="row">
+                <div class="col-sm center">
+                  <button id="hardBtn" type="button" class="difficulty-btn btn-danger">Hard</button>
+                </div>
+                
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

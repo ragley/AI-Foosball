@@ -29,22 +29,52 @@ let serverRequest = {
 window.addEventListener("load", () => {
   let startGameBtn = document.getElementById("startGameBtn");
   let endGameBtn = document.getElementById("endGameBtn");
-  let devModal = document.getElementById("devModal");
+  
   let osuLogo = document.getElementById("osuLogo");
+  let devModal = document.getElementById("devModal");
   let devModalCloseBtn = document.getElementById("devModalCloseBtn");
+  
+  let difficultyModal = document.getElementById("difficultyModal");
+  let difficultyModalCloseBtn = document.getElementById("difficultyModalCloseBtn");
+  let easyBtn = document.getElementById("easyBtn");
+  let mediumBtn = document.getElementById("mediumBtn");
+  let hardBtn = document.getElementById("hardBtn");
+  
+  
+  // Event Listeners ===================================================
   startGameBtn.addEventListener("click", () => {
-    userAction["game_flag"] = "1";
-    client.write("empt"+JSON.stringify(userAction));
-    console.log(userAction);
+    difficultyModal.style.display = "block";
   });
   endGameBtn.addEventListener("click", () => {
-    userAction["game_flag"] = "0";
+    userAction["game_flag"] = 0;
     client.write("empt"+JSON.stringify(userAction));
-    console.log(userAction);
   });
   
-  // TODO Modal Buttons + Event Listeners
+  // difficulty modal
   
+  easyBtn.addEventListener("click", () => {
+    difficultyModal.style.display = "none";
+    userAction["game_flag"] = 1;
+    userAction["difficulty_flag"] = 0;
+    console.log(userAction);
+    client.write("empt"+JSON.stringify(userAction));
+  });
+  mediumBtn.addEventListener("click", () => {
+    difficultyModal.style.display = "none";
+    userAction["game_flag"] = 1;
+    userAction["difficulty_flag"] = 1;
+    console.log(userAction);
+    client.write("empt"+JSON.stringify(userAction));
+  });
+  hardBtn.addEventListener("click", () => {
+    difficultyModal.style.display = "none";
+    userAction["game_flag"] = 1;
+    userAction["difficulty_flag"] = 2;
+    console.log(userAction);
+    client.write("empt"+JSON.stringify(userAction));
+  });
+  
+  // dev modal
   osuLogo.addEventListener("click", () => {
     devModal.style.display = "block";
   });
@@ -68,11 +98,11 @@ setInterval(() => {
       let json_data = JSON.parse(data);
       // console.log(JSON.stringify(json_data, null, 4)); 
       devModalContentText.innerHTML = JSON.stringify(json_data, undefined, 4);
-      if("player_score" in data){
-        playerScore.innerHTML = data["player_score"];
+      if("player_score" in json_data){
+        playerScore.innerHTML = json_data["player_score"];
       }
-      if("robot_score" in data){
-        robotScoreinnerHTML = data["robot_score"];
+      if("robot_score" in json_data){
+        robotScoreinnerHTML = json_data["robot_score"];
       }
     });
   }
