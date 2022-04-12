@@ -84,14 +84,7 @@ void setup() {
     rotation_stepper.setAccelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
     rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
 
-    while (!CAN.begin(BAUD_RATE)) {
-        if (SERIAL_ON) Serial.println("Starting CAN failed!");
-        digitalWrite(ALL_GOOD_LED, LOW);
-        delay(1000);
-    }
-    
-    if (SERIAL_ON) Serial.println("Starting CAN success");
-    CAN.filter(0b1 << board_ID, 0b10100000 + (1 << board_ID) + 0x1fffff00);
+    start_CAN(BAUD_RATE);
     
     message_time = millis();
     start_time = millis();
@@ -108,6 +101,20 @@ void loop() {
     }
 }
 
+bool start_CAN(int BAUD){
+    if (SERIAL_ON) Serial.println("Starting CAN");
+    while (!CAN.begin(BAUD_RATE)) {
+        if (SERIAL_ON) Serial.println("failed!");
+        digitalWrite(ALL_GOOD_LED, LOW);
+        delay(1000);
+    }
+    while(!CAN.filter(0b1 << board_ID, 0b10100000 + (1 << board_ID) + 0x1fffff00)){
+        if (SERIAL_ON) Serial.println("filter failed!");
+        digitalWrite(ALL_GOOD_LED, LOW);
+        delay(1000);
+    }
+    if (SERIAL_ON) Serial.println("Starting CAN success");
+}
 
 bool zero(){
     digitalWrite(ALL_GOOD_LED, LOW);
@@ -290,15 +297,6 @@ void CANReceiver(){
             Serial.print(" ");
         }
     
-        //EMERGENCY STOP
-        if ((CAN.packetId() & (0x1fffff00 + 0b11110000)) == 0b00000000) {
-            emergency_stop = true;
-            evaluateState();
-            return;
-        } else {
-            emergency_stop = false;
-        }
-    
         //zero
         if ((CAN.packetId() & (0x1fffff00 + 0b11100000)) == 0b01000000) {
             if (SERIAL_ON) Serial.println("Zero message recieved");
@@ -306,36 +304,37 @@ void CANReceiver(){
             evaluateState();
             return;
         }
-    
-        int rotation_index = sizeof(float)-1;
-        int translation_index = sizeof(float)-1;
-        bool data_received = false;
-        while(CAN.available()){
-            data_received = true;
-            if (translation_index >= 0){
-                translation_desired_f.bytes[translation_index--] = (byte)CAN.read();
-            } else if (rotation_index >= 0) {
-                rotation_desired_f.bytes[rotation_index--] = (byte)CAN.read();
-            } else {
-                if (SERIAL_ON && SERIAL_MESSAGES) Serial.println("DATA DROPPED)");
-                return;
+        if ((CAN.packetId() & (0x1fffff00 + 0b11110000)) == 0b00010000){
+            int rotation_index = sizeof(float)-1;
+            int translation_index = sizeof(float)-1;
+            bool data_received = false;
+            while(CAN.available()){
+                data_received = true;
+                if (translation_index >= 0){
+                    translation_desired_f.bytes[translation_index--] = (byte)CAN.read();
+                } else if (rotation_index >= 0) {
+                    rotation_desired_f.bytes[rotation_index--] = (byte)CAN.read();
+                } else {
+                    if (SERIAL_ON && SERIAL_MESSAGES) Serial.println("DATA DROPPED)");
+                    return;
+                }
             }
+            if (data_received){
+                if (!((translation_index < 0) && (rotation_index < 0))) {
+                    if (SERIAL_ON && SERIAL_MESSAGES) Serial.println("LESS THAN 8 BYTES RECEIVED)");
+                    return;
+                }
+                rotation_desired = (double)rotation_desired_f.value/DEGREES_PER_REVOLUTION;
+                translation_desired = (double)translation_desired_f.value;
+                if (SERIAL_ON && SERIAL_MESSAGES){
+                    Serial.print(" Rotation: ");
+                    Serial.print(rotation_desired*DEGREES_PER_REVOLUTION);
+                    Serial.print(" Translation: ");
+                    Serial.print(translation_desired);
+                }
+            }
+            if (SERIAL_ON && SERIAL_MESSAGES) Serial.println(")");
         }
-        if (data_received){
-            if (!((translation_index < 0) && (rotation_index < 0))) {
-                if (SERIAL_ON && SERIAL_MESSAGES) Serial.println("LESS THAN 8 BYTES RECEIVED)");
-                return;
-            }
-            rotation_desired = (double)rotation_desired_f.value/DEGREES_PER_REVOLUTION;
-            translation_desired = (double)translation_desired_f.value;
-            if (SERIAL_ON && SERIAL_MESSAGES){
-                Serial.print(" Rotation: ");
-                Serial.print(rotation_desired*DEGREES_PER_REVOLUTION);
-                Serial.print(" Translation: ");
-                Serial.print(translation_desired);
-            }
-        }
-        if (SERIAL_ON && SERIAL_MESSAGES) Serial.println(")");
     }
 }
 
@@ -353,6 +352,7 @@ void evaluateState(){
         if (translation_stepper.isStartedAsService()) translation_stepper.stopService();
         if (rotation_stepper.isStartedAsService()) rotation_stepper.stopService();
         if (zero()) {
+            digitalWrite(ALL_GOOD_LED, LOW);
             translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
             rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
             if (emergency_stop) {
@@ -364,6 +364,7 @@ void evaluateState(){
             }
         }
     } else if (state == RUNNING){
+        digitalWrite(ALL_GOOD_LED, HIGH);
         if (emergency_stop || (millis() - message_time > MAX_COM_DELAY) || (digitalRead(ENABLE) == LOW)) {
             if (SERIAL_ON && SERIAL_STATES && emergency_stop) Serial.println("Emergency Stop Command Active");
             if (SERIAL_ON && SERIAL_STATES && (millis() - message_time > MAX_COM_DELAY)) Serial.println("COM timeout");
@@ -371,6 +372,7 @@ void evaluateState(){
             state = DISABLING;
         }
     } else if (state == DISABLED){
+        digitalWrite(ALL_GOOD_LED, LOW);
         if (emergency_stop) state = EMERGENCY_STOP;
         else if ((millis() - message_time < MAX_COM_DELAY) && (digitalRead(ENABLE) == HIGH)) {
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Button Released and COM timeout not exceeded");
@@ -378,11 +380,13 @@ void evaluateState(){
         }
         if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
     } else if (state == EMERGENCY_STOP){
+        digitalWrite(ALL_GOOD_LED, LOW);
         if (!emergency_stop) {
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Inactive");
             state = DISABLED;
         }
     } else if (state == STOP_SWITCH) {
+        digitalWrite(ALL_GOOD_LED, LOW);
         if (digitalRead(ENABLE) == HIGH){
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Button Released");
             state = ZERO;
@@ -397,7 +401,6 @@ void evaluateState(){
         } else {
             if (!translation_stepper.isStartedAsService()) translation_stepper.startAsService(STEPPER_CORE);
             if (!rotation_stepper.isStartedAsService()) rotation_stepper.startAsService(STEPPER_CORE);
-            digitalWrite(ALL_GOOD_LED, HIGH);
             state = RUNNING;
             if (SERIAL_ON) Serial.println("STARTED");
         }
@@ -408,7 +411,6 @@ void evaluateState(){
         rotation_stepper.emergencyStop(false);
         if (translation_stepper.isStartedAsService()) translation_stepper.stopService();
         if (rotation_stepper.isStartedAsService()) rotation_stepper.stopService();
-        digitalWrite(ALL_GOOD_LED, LOW);
         if (emergency_stop) {
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Active");
             state = EMERGENCY_STOP;
