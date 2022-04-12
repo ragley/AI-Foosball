@@ -1,10 +1,8 @@
 #include <CAN.h>
 #include "Goal_Constants.h"
+#include "Sensor_Debounce.h"
 
 const bool SERIAL_ON = true;
-const int COM_DELAY = 50;
-
-const int BOUNCE = 10;
 
 void CANSender();
 void CANReceiver();
@@ -21,8 +19,8 @@ unsigned long robot_goals = 0;
 
 TaskHandle_t Sensor_Core;
 
-Digital_Sensor player_sensor = Digital_Sensor(PLAYER_SENSOR, BOUNCE, INPUT_PULLUP, LOW);
-Digital_Sensor robot_sensor = Digital_Sensor(ROBOT_SENSOR, BOUNCE, INPUT_PULLUP, LOW);
+Sensor_Debounce player_sensor = Sensor_Debounce(PLAYER_SENSOR, DEBOUNCE, INPUT_PULLUP, LOW);
+Sensor_Debounce robot_sensor = Sensor_Debounce(ROBOT_SENSOR, DEBOUNCE, INPUT_PULLUP, LOW);
 
 double start_time;
 
@@ -35,7 +33,7 @@ void setup() {
 
     CAN.setPins(RXR_CAN, TXD_CAN);
 
-    if (!CAN.begin(1000E3)) {
+    if (!CAN.begin(BAUD_RATE)) {
         if (SERIAL_ON) Serial.println("Starting CAN failed!");
         digitalWrite(ALL_GOOD_LED, LOW);
         while (1);

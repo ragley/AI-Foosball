@@ -1,9 +1,10 @@
 #include <CAN.h>
 #include <ESP_FlexyStepper.h>
 #include "Controller_Constants.h"
+#include "Sensor_Debounce.h"
 
 //States
-#define OFF 0
+#define ZERO 0
 #define RUNNING 1
 #define DISABLED 2
 #define EMERGENCY_STOP 3
@@ -12,7 +13,8 @@
 #define STOP_SWITCH 6
 
 const bool SERIAL_ON = true;
-const int PROCESS_DELAY = COM_DELAY;
+const bool SERIAL_MESSAGES = false;
+const bool SERIAL_STATES = true;
 
 TaskHandle_t Main;
 TaskHandle_t Communication;
@@ -20,17 +22,18 @@ TaskHandle_t Communication;
 ESP_FlexyStepper translation_stepper;
 ESP_FlexyStepper rotation_stepper;
 
+Sensor_Debounce rotational_zero = Sensor_Debounce(ROTATION_DRIVER_ZERO, SENSOR_DEBOUNCE, INPUT_PULLUP, LOW);
+Sensor_Debounce translational_zero = Sensor_Debounce(TRANSLATION_DRIVER_ZERO, SENSOR_DEBOUNCE, INPUT_PULLUP, LOW);
+
 bool zero();
 void setControl();
 void CANSender();
 void CANReceiver();
 void evaluateState();
-// void IRAM_ATTR Increment_Translation();
-// void IRAM_ATTR Increment_Rotation();
 
 int board_ID = 0;
 
-int state = 0;
+int state = ZERO;
 bool emergency_stop = false;
 
 double translation_measured = 0;
@@ -60,8 +63,7 @@ void setup() {
     pinMode(ID_1, INPUT);
     pinMode(ID_2, INPUT);
     pinMode(ENABLE, INPUT);
-    // attachInterrupt(TRANSLATION_SENSOR, Increment_Translation, RISING);
-    // attachInterrupt(ROTATION_SENSOR, Increment_Rotation, RISING);
+
     CAN.setPins(RXR_CAN, TXD_CAN);
     pinMode(ALL_GOOD_LED, OUTPUT);
     translation_stepper.connectToPins(TRANSLATION_DRIVER_PULSE, TRANSLATION_DRIVER_DIR);
@@ -82,21 +84,12 @@ void setup() {
     rotation_stepper.setAccelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
     rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
 
-    while(digitalRead(ENABLE) == LOW);
-    if (!zero()){
-        digitalWrite(ALL_GOOD_LED, LOW);
-        while(1);
-    }
-
-    translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
-    rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
-
-    // start the CAN bus at 500 kbps
-    if (!CAN.begin(1000E3)) {
+    while (!CAN.begin(BAUD_RATE)) {
         if (SERIAL_ON) Serial.println("Starting CAN failed!");
         digitalWrite(ALL_GOOD_LED, LOW);
-        while (1);
+        delay(1000);
     }
+    
     if (SERIAL_ON) Serial.println("Starting CAN success");
     CAN.filter(0b1 << board_ID, 0b10100000 + (1 << board_ID) + 0x1fffff00);
     
@@ -121,7 +114,8 @@ bool zero(){
     if (SERIAL_ON) Serial.print("Zeroing Translation");
     bool success_translation = zeroTrans();
     if (!success_translation) {
-        if (SERIAL_ON) Serial.println(" Failed");
+        if (SERIAL_ON && digitalRead(ENABLE) == LOW) Serial.println(" Failed Due To Disable Button");
+        else if (SERIAL_ON) Serial.println(" Failed");
         return success_translation;
     }
     if (SERIAL_ON) {
@@ -130,51 +124,59 @@ bool zero(){
     }
     bool success_rotation = zeroRev();
     if (!success_rotation) {
-        if (SERIAL_ON) Serial.println(" Failed");
+        if (SERIAL_ON && digitalRead(ENABLE) == LOW) Serial.println(" Failed Due To Disable Button");
+        else if (SERIAL_ON) Serial.println(" Failed");
         return success_rotation;
     }
     bool success = success_rotation && success_translation;
-    if (success) {
-        translation_sensor = rotationSensor = 0;
-    }
-    if (SERIAL_ON && success) Serial.println(" Success");
-    else if(SERIAL_ON) Serial.println(" Failed");
+    if (SERIAL_ON) Serial.println(" Success");
     digitalWrite(ALL_GOOD_LED, HIGH);
     return success;
 }
 
 bool zeroRev(){
+    for (int i = 0; i<SENSOR_DEBOUNCE*2; i++) rotational_zero.sensorMonitor();
     int timer_serial = 0;
     int timer_bounce = 0;
     int count = 0;
-    bool success = false;
-    pinMode(ROTATION_DRIVER_ZERO, INPUT_PULLUP);
     rotation_stepper.setCurrentPositionAsHomeAndStop();
     rotation_stepper.setSpeedInRevolutionsPerSecond(HOME_SPEED_ROTATION);
-    double distance = 2*DIRECTIONS[board_ID][ROTATION];
+    double distance = 3*DIRECTIONS[board_ID][ROTATION];
     rotation_stepper.setTargetPositionInRevolutions(distance);
-    while(!rotation_stepper.processMovement() && (count <= 10)){
+    while(!rotation_stepper.processMovement() && rotational_zero.sensorActive()){ //if sensor is pressed, rotate until un pressed
         if (millis() - timer_bounce > 1) {
             timer_bounce = millis();
-            if (digitalRead(ROTATION_DRIVER_ZERO) == LOW) {
-                count += 1;
-            } else {
-                count = 0;
-            }
+            rotational_zero.sensorMonitor();
         }
-        if (count > 10) {
-            success = true;
-        }
+
         if (SERIAL_ON && millis() - timer_serial > 1000) {
             timer_serial = millis();
-            if (digitalRead(ENABLE) == LOW) Serial.print("DISABLED");
-            else Serial.print(".");
+            Serial.print(".");
         }
 
-
-        delay(1);
+        if (digitalRead(ENABLE) == LOW) {
+            rotation_stepper.emergencyStop(false);
+            return false;
+        }
     }
-    if (digitalRead(ROTATION_DRIVER_ZERO) == LOW) {
+
+    while(!rotation_stepper.processMovement() && !rotational_zero.sensorActive()){
+        if (millis() - timer_bounce > 1) {
+            timer_bounce = millis();
+            rotational_zero.sensorMonitor();
+        }
+
+        if (SERIAL_ON && millis() - timer_serial > 1000) {
+            timer_serial = millis();
+            Serial.print(".");
+        }
+
+        if (digitalRead(ENABLE) == LOW) {
+            rotation_stepper.emergencyStop(false);
+            return false;
+        }
+    }
+    if (rotational_zero.sensorActive()) {
         rotation_stepper.setCurrentPositionAsHomeAndStop();
         return true;
     } else {
@@ -185,43 +187,38 @@ bool zeroRev(){
 }
 
 bool zeroTrans(){
-    int timer_serial = 0;
-    int timer_bounce = 0;
-    int count = 0;
-    bool success = false;
-    pinMode(TRANSLATION_DRIVER_ZERO, INPUT_PULLUP);
+    for (int i = 0; i<SENSOR_DEBOUNCE*2; i++) translational_zero.sensorMonitor();
+    int timer_serial = millis();
+    int timer_bounce = millis();
     translation_stepper.setCurrentPositionAsHomeAndStop();
     translation_stepper.setSpeedInMillimetersPerSecond(HOME_SPEED_TRANSLATION);
     double distance = DIRECTIONS[board_ID][TRANSLATION]*-1*MAX_TRANSLATIONS[board_ID];
     translation_stepper.setTargetPositionInMillimeters(distance);
-    while(!translation_stepper.processMovement() && (count <= 20)){
+    while(!translation_stepper.processMovement() && !translational_zero.sensorActive()){
         if (millis() - timer_bounce > 1) {
             timer_bounce = millis();
-            if (digitalRead(TRANSLATION_DRIVER_ZERO) == LOW) {
-                count += 1;
-            } else {
-                count = 0;
-            }
-        }
-        if (count > 10) {
-            success = true;
+            translational_zero.sensorMonitor();
         }
 
-        if (SERIAL_ON && millis() - timer_serial > 1000) {
+        if (SERIAL_ON && (millis() - timer_serial > 1000)) {
             timer_serial = millis();
-            if (digitalRead(ENABLE) == LOW) Serial.print("DISABLED");
-            else Serial.print(".");
+            Serial.print(".");
         }
-        delay(1);
+
+        if (digitalRead(ENABLE) == LOW) {
+            translation_stepper.emergencyStop(false);
+            return false;
+        }
+
     }
-    if (success) {
+    if (translational_zero.sensorActive()) {
         translation_stepper.setCurrentPositionAsHomeAndStop();
         translation_stepper.setTargetPositionInMillimeters(DIRECTIONS[board_ID][TRANSLATION]);
         while(!translation_stepper.processMovement());
         translation_stepper.setCurrentPositionAsHomeAndStop();
         return true;
     } else {
-        translation_stepper.emergencyStop();
+        translation_stepper.emergencyStop(false);
         return false;
     }
 }
@@ -230,11 +227,18 @@ void setControl(){
     if (state == RUNNING) {
         if (translation_desired > MAX_TRANSLATIONS[board_ID]) translation_desired = MAX_TRANSLATIONS[board_ID];
         if (translation_desired < 0) translation_desired = 1;
-        translation_stepper.setTargetPositionInMillimeters(DIRECTIONS[board_ID][TRANSLATION]*translation_desired);
-        rotation_stepper.setTargetPositionInRevolutions(DIRECTIONS[board_ID][ROTATION]*rotation_desired);
+        if (translation_stepper.getCurrentPositionInMillimeters()*DIRECTIONS[board_ID][TRANSLATION] < -1) {
+            if (SERIAL_ON && SERIAL_STATES){
+               Serial.print("Went Negative: ");
+               Serial.println(translation_stepper.getCurrentPositionInMillimeters()*DIRECTIONS[board_ID][TRANSLATION]);
+            }
+            state = ZERO;
+        }
+        else {
+            translation_stepper.setTargetPositionInMillimeters(DIRECTIONS[board_ID][TRANSLATION]*translation_desired);
+            rotation_stepper.setTargetPositionInRevolutions(DIRECTIONS[board_ID][ROTATION]*rotation_desired);
+        }
     }
-    // if (rotationSensorActive) rotation_stepper.setCurrentPositionInRevolutions(rotationSensor);
-    // if (translationSensorActive) translation_stepper.setCurrentPositionInMillimeters(translation_sensor);
 }
 
 void CANSender(){
@@ -242,7 +246,7 @@ void CANSender(){
     FLOAT_BYTE_UNION rotation_measured_f;
     translation_measured_f.value = (float)(DIRECTIONS[board_ID][TRANSLATION]*translation_stepper.getCurrentPositionInMillimeters());
     rotation_measured_f.value = (float)(DIRECTIONS[board_ID][ROTATION]*rotation_stepper.getCurrentPositionInRevolutions()*DEGREES_PER_REVOLUTION);
-    if (SERIAL_ON) Serial.print("Sent: (packet: 0b");
+    if (SERIAL_ON && SERIAL_MESSAGES) Serial.print("Sent: (packet: 0b");
     if (state == RUNNING) {
         CAN.beginPacket(0b10010000 + (1 << board_ID));
         for (int i = sizeof(float)-1; i >= 0; i--){
@@ -252,9 +256,9 @@ void CANSender(){
             CAN.write(rotation_measured_f.bytes[i]);
         }
         CAN.endPacket();
-        if (SERIAL_ON) Serial.print(0b10010000 + (1 << board_ID), BIN);
+        if (SERIAL_ON && SERIAL_MESSAGES) Serial.print(0b10010000 + (1 << board_ID), BIN);
     }
-    else if (state == DISABLED || state == EMERGENCY_STOP || state == STOP_SWITCH) {
+    else if (state == DISABLED || state == EMERGENCY_STOP || state == STOP_SWITCH || state == ZERO) {
         CAN.beginPacket((1 << board_ID) + 0b10000000);
         for (int i = sizeof(float)-1; i >= 0; i--){
             CAN.write(translation_measured_f.bytes[i]);
@@ -263,11 +267,11 @@ void CANSender(){
             CAN.write(rotation_measured_f.bytes[i]);
         }
         CAN.endPacket();
-        if (SERIAL_ON) Serial.print((1 << board_ID) + 0b10000000, BIN);
+        if (SERIAL_ON && SERIAL_MESSAGES) Serial.print((1 << board_ID) + 0b10000000, BIN);
     } else {
-        if (SERIAL_ON) Serial.println("NON PRINT STATE");
+        if (SERIAL_ON && SERIAL_MESSAGES) Serial.println("NON PRINT STATE");
     }
-    if (SERIAL_ON) {
+    if (SERIAL_ON && SERIAL_MESSAGES) {
         Serial.print(" ROTATION: ");
         Serial.print(rotation_measured_f.value);
         Serial.print(" Translation: ");
@@ -280,14 +284,14 @@ void CANReceiver(){
         message_time = millis();
         FLOAT_BYTE_UNION translation_desired_f;
         FLOAT_BYTE_UNION rotation_desired_f;
-        if (SERIAL_ON) {
+        if (SERIAL_ON && SERIAL_MESSAGES) {
             Serial.print("Recv: (packet: 0b");
             Serial.print(CAN.packetId(), BIN);
             Serial.print(" ");
         }
     
         //EMERGENCY STOP
-        if ((CAN.packetId() & 0b11110000) == 0b00000000) {
+        if ((CAN.packetId() & (0x1fffff00 + 0b11110000)) == 0b00000000) {
             emergency_stop = true;
             evaluateState();
             return;
@@ -296,10 +300,10 @@ void CANReceiver(){
         }
     
         //zero
-        if ((CAN.packetId() & 0b11000000) == 0b01000000) {
-            zero();
-            translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
-            rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
+        if ((CAN.packetId() & (0x1fffff00 + 0b11100000)) == 0b01000000) {
+            if (SERIAL_ON) Serial.println("Zero message recieved");
+            state = ZERO;
+            evaluateState();
             return;
         }
     
@@ -313,66 +317,86 @@ void CANReceiver(){
             } else if (rotation_index >= 0) {
                 rotation_desired_f.bytes[rotation_index--] = (byte)CAN.read();
             } else {
-                if (SERIAL_ON) Serial.println("DATA DROPPED)");
+                if (SERIAL_ON && SERIAL_MESSAGES) Serial.println("DATA DROPPED)");
                 return;
             }
         }
         if (data_received){
             if (!((translation_index < 0) && (rotation_index < 0))) {
-                if (SERIAL_ON) Serial.println("LESS THAN 8 BYTES RECEIVED)");
+                if (SERIAL_ON && SERIAL_MESSAGES) Serial.println("LESS THAN 8 BYTES RECEIVED)");
                 return;
             }
             rotation_desired = (double)rotation_desired_f.value/DEGREES_PER_REVOLUTION;
             translation_desired = (double)translation_desired_f.value;
-            if (SERIAL_ON){
+            if (SERIAL_ON && SERIAL_MESSAGES){
                 Serial.print(" Rotation: ");
                 Serial.print(rotation_desired*DEGREES_PER_REVOLUTION);
                 Serial.print(" Translation: ");
                 Serial.print(translation_desired);
             }
         }
-        if (SERIAL_ON) Serial.println(")");
+        if (SERIAL_ON && SERIAL_MESSAGES) Serial.println(")");
     }
 }
 
+int last_state = 0;
+
 void evaluateState(){
-    if (state == OFF){
-        if (emergency_stop) {
-            state = DISABLING;
-        } else {
-            state = STARTING;
+    if (SERIAL_ON && SERIAL_STATES && last_state != state) {
+        last_state = state;
+        Serial.print("State: ");
+        Serial.println(state);
+    }
+    if (state == ZERO){
+        translation_stepper.emergencyStop(false);
+        rotation_stepper.emergencyStop(false);
+        if (translation_stepper.isStartedAsService()) translation_stepper.stopService();
+        if (rotation_stepper.isStartedAsService()) rotation_stepper.stopService();
+        if (zero()) {
+            translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
+            rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
+            if (emergency_stop) {
+                if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Active");
+                state = DISABLED;
+            } else {
+                if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Inactive");
+                state = STARTING;
+            }
         }
     } else if (state == RUNNING){
         if (emergency_stop || (millis() - message_time > MAX_COM_DELAY) || (digitalRead(ENABLE) == LOW)) {
+            if (SERIAL_ON && SERIAL_STATES && emergency_stop) Serial.println("Emergency Stop Command Active");
+            if (SERIAL_ON && SERIAL_STATES && (millis() - message_time > MAX_COM_DELAY)) Serial.println("COM timeout");
+            if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
             state = DISABLING;
         }
     } else if (state == DISABLED){
         if (emergency_stop) state = EMERGENCY_STOP;
         else if ((millis() - message_time < MAX_COM_DELAY) && (digitalRead(ENABLE) == HIGH)) {
+            if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Button Released and COM timeout not exceeded");
             state = STARTING;
         }
-        if ((digitalRead(ENABLE) == LOW) && SERIAL_ON) Serial.println("STOP SWITCH ACTIVE");
+        if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
     } else if (state == EMERGENCY_STOP){
-        if (SERIAL_ON) Serial.println("EMERGENCY_STOP");
         if (!emergency_stop) {
+            if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Inactive");
             state = DISABLED;
         }
     } else if (state == STOP_SWITCH) {
         if (digitalRead(ENABLE) == HIGH){
-            zero();
-            translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
-            rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
-            state = DISABLED;
+            if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Button Released");
+            state = ZERO;
         }
     }
 
     if (state == STARTING){
         if (SERIAL_ON) Serial.println("STARTING");
         if (emergency_stop) {
+            if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Active");
             state = DISABLING;
         } else {
-            translation_stepper.startAsService(STEPPER_CORE);
-            rotation_stepper.startAsService(STEPPER_CORE);
+            if (!translation_stepper.isStartedAsService()) translation_stepper.startAsService(STEPPER_CORE);
+            if (!rotation_stepper.isStartedAsService()) rotation_stepper.startAsService(STEPPER_CORE);
             digitalWrite(ALL_GOOD_LED, HIGH);
             state = RUNNING;
             if (SERIAL_ON) Serial.println("STARTED");
@@ -382,44 +406,16 @@ void evaluateState(){
         if (SERIAL_ON) Serial.println("DISABLING");
         translation_stepper.emergencyStop(false);
         rotation_stepper.emergencyStop(false);
-        translation_stepper.stopService();
-        rotation_stepper.stopService();
+        if (translation_stepper.isStartedAsService()) translation_stepper.stopService();
+        if (rotation_stepper.isStartedAsService()) rotation_stepper.stopService();
         digitalWrite(ALL_GOOD_LED, LOW);
         if (emergency_stop) {
+            if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Active");
             state = EMERGENCY_STOP;
         } else if(digitalRead(ENABLE) == LOW) {
+            if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Button Pressed");
             state = STOP_SWITCH;
         } else state = DISABLED;
         if (SERIAL_ON) Serial.println("DISABLED");
     }
 }
-
-// void IRAM_ATTR Increment_Translation(){
-//     int spin_direction = translation_stepper.getDirectionOfMotion();
-//     if (spin_direction > 0) {
-//         translation_sensor += 1 * SENSOR_PULSE_TRANSLATION_CONVERSION;
-//     } else if (spin_direction < 0) {
-//         translation_sensor -= 1 * SENSOR_PULSE_TRANSLATION_CONVERSION;
-//     } else {
-//         if (SERIAL_ON) Serial.println("Increment_Translation called with movement = 0");
-//     }
-//     if (!translationSensorActive && abs(translation_sensor) > MINIMUM_SENSOR_PULSES * SENSOR_PULSE_TRANSLATION_CONVERSION) {
-//         if (SERIAL_ON) Serial.println("Translation Sensor Active");
-//         translationSensorActive = true;
-//     }
-// }
-
-// void IRAM_ATTR Increment_Rotation(){
-//     int spin_direction = rotation_stepper.getDirectionOfMotion();
-//     if (spin_direction > 0) {
-//         rotationSensor += 1 * SENSOR_PULSE_ROTATION_CONVERSION;
-//     } else if (spin_direction < 0) {
-//         rotationSensor -= 1 * SENSOR_PULSE_ROTATION_CONVERSION;
-//     } else {
-//         if (SERIAL_ON) Serial.println("Increment_Rotation called with movement = 0");
-//     }
-//     if (!rotationSensorActive && abs(rotationSensor) > MINIMUM_SENSOR_PULSES * SENSOR_PULSE_ROTATION_CONVERSION) {
-//         if (SERIAL_ON) Serial.println("Rotation Sensor Active");
-//         rotationSensorActive = true;
-//     }
-// }

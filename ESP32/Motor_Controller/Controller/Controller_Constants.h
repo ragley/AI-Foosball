@@ -35,11 +35,7 @@ const double MAX_TRANSLATIONS[4] = {181.23, //3 rod
 
 const double DEGREES_PER_REVOLUTION = 360;
 
-const double STEP_PULSE_ROTATION_CONVERSION = 1600; //pulse per rotation (200 pulses on the motor with the driver set at 3200)
-//const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {46.5948,
-//                                                    48.7052,
-//                                                    44.2853,
-//                                                    46.27}; //pulse per mm
+const double STEP_PULSE_ROTATION_CONVERSION = 3200; //pulse per rotation (200 pulses on the motor with the driver set at 3200)
 
 const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {41.27, //3 rod
                                                     41.27,  //5 rod
@@ -48,13 +44,15 @@ const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {41.27, //3 rod
 
 //const double MAX_SPEED_ROTATION = 89; //rotations per second
 const double MAX_SPEED_ROTATION = 20; //rotations per second
-const double MAX_SPEED_TRANSLATION = 200; //mm per second
-const double MAX_ACCELERATION_ROTATION = MAX_SPEED_ROTATION * 2; // rotations per second per second
-const double MAX_ACCELERATION_TRANSLATION = MAX_SPEED_TRANSLATION; // mm per second per second
-const double HOME_SPEED_TRANSLATION = MAX_SPEED_TRANSLATION / 2;
-const double HOME_SPEED_ROTATION = MAX_SPEED_ROTATION / 10;
+const double MAX_SPEED_TRANSLATION = 2670; //mm per second
+const double MAX_ACCELERATION_ROTATION = MAX_SPEED_ROTATION; // rotations per second per second
+const double MAX_ACCELERATION_TRANSLATION = 10000; // mm per second per second
+const double HOME_SPEED_TRANSLATION = 100;
+const double HOME_SPEED_ROTATION = 1;
 
 const int COM_DELAY = 10; //in ms
-const int MAX_COM_DELAY = COM_DELAY * 5;
+const int MAX_COM_DELAY = COM_DELAY * 6;
 
-const int MINIMUM_SENSOR_PULSES = 10;
+const int SENSOR_DEBOUNCE = 10;
+
+const int BAUD_RATE = 1000E3;
