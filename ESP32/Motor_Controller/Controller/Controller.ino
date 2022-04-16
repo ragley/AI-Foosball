@@ -297,6 +297,16 @@ void CANReceiver(){
             Serial.print(" ");
         }
     
+        //EMERGENCY STOP
+//        if ((CAN.packetId() & (0x1fffff00 + 0b11110000)) == 0b00000000) {
+//            if (SERIAL_ON) Serial.println("E STOP message recieved");
+//            emergency_stop = true;
+//            evaluateState();
+//            return;
+//        } else {
+//            emergency_stop = false;
+//        }
+    
         //zero
         if ((CAN.packetId() & (0x1fffff00 + 0b11100000)) == 0b01000000) {
             if (SERIAL_ON) Serial.println("Zero message recieved");
@@ -304,7 +314,8 @@ void CANReceiver(){
             evaluateState();
             return;
         }
-        if ((CAN.packetId() & (0x1fffff00 + 0b11110000)) == 0b00010000){
+
+        if ((CAN.packetId() & (0x1fffff00 + 0b11110000)) == 0b10000){
             int rotation_index = sizeof(float)-1;
             int translation_index = sizeof(float)-1;
             bool data_received = false;
