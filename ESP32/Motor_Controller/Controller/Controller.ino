@@ -119,7 +119,7 @@ bool start_CAN(int BAUD){
 bool zero(){
     digitalWrite(ALL_GOOD_LED, LOW);
     if (SERIAL_ON) Serial.print("Zeroing Translation");
-    bool success_translation = zeroTrans();
+    bool success_translation = zeroTranslation();
     if (!success_translation) {
         if (SERIAL_ON && digitalRead(ENABLE) == LOW) Serial.println(" Failed Due To Disable Button");
         else if (SERIAL_ON) Serial.println(" Failed");
@@ -129,7 +129,7 @@ bool zero(){
         Serial.println(" Success");
         Serial.print("Zeroing Rotation");
     }
-    bool success_rotation = zeroRev();
+    bool success_rotation = zeroRotation();
     if (!success_rotation) {
         if (SERIAL_ON && digitalRead(ENABLE) == LOW) Serial.println(" Failed Due To Disable Button");
         else if (SERIAL_ON) Serial.println(" Failed");
@@ -141,7 +141,7 @@ bool zero(){
     return success;
 }
 
-bool zeroRev(){
+bool zeroRotation(){
     for (int i = 0; i<SENSOR_DEBOUNCE*2; i++) rotational_zero.sensorMonitor();
     int timer_serial = 0;
     int timer_bounce = 0;
@@ -193,7 +193,7 @@ bool zeroRev(){
     
 }
 
-bool zeroTrans(){
+bool zeroTranslation(){
     for (int i = 0; i<SENSOR_DEBOUNCE*2; i++) translational_zero.sensorMonitor();
     int timer_serial = millis();
     int timer_bounce = millis();
@@ -236,8 +236,8 @@ void setControl(){
         if (translation_desired < 0) translation_desired = 1;
         if (translation_stepper.getCurrentPositionInMillimeters()*DIRECTIONS[board_ID][TRANSLATION] < -1) {
             if (SERIAL_ON && SERIAL_STATES){
-               Serial.print("Went Negative: ");
-               Serial.println(translation_stepper.getCurrentPositionInMillimeters()*DIRECTIONS[board_ID][TRANSLATION]);
+                Serial.print("Went Negative: ");
+                Serial.println(translation_stepper.getCurrentPositionInMillimeters()*DIRECTIONS[board_ID][TRANSLATION]);
             }
             state = ZERO;
         }
@@ -298,18 +298,18 @@ void CANReceiver(){
         }
     
         //EMERGENCY STOP
-//        if ((CAN.packetId() & (0x1fffff00 + 0b11110000)) == 0b00000000) {
-//            if (SERIAL_ON) Serial.println("E STOP message recieved");
-//            emergency_stop = true;
-//            evaluateState();
-//            return;
-//        } else {
-//            emergency_stop = false;
-//        }
+        if ((CAN.packetId() & (0x1fffff00 + 0b11111111)) == 0b00001111) {
+            if (SERIAL_ON) Serial.println("E STOP message received");
+            emergency_stop = true;
+            evaluateState();
+            return;
+        } else {
+            emergency_stop = false;
+        }
     
         //zero
         if ((CAN.packetId() & (0x1fffff00 + 0b11100000)) == 0b01000000) {
-            if (SERIAL_ON) Serial.println("Zero message recieved");
+            if (SERIAL_ON) Serial.println("Zero message received");
             state = ZERO;
             evaluateState();
             return;
@@ -358,38 +358,40 @@ void evaluateState(){
         Serial.println(state);
     }
     if (state == ZERO){
+        digitalWrite(ALL_GOOD_LED, LOW);
         translation_stepper.emergencyStop(false);
         rotation_stepper.emergencyStop(false);
         if (translation_stepper.isStartedAsService()) translation_stepper.stopService();
         if (rotation_stepper.isStartedAsService()) rotation_stepper.stopService();
         if (zero()) {
-            digitalWrite(ALL_GOOD_LED, LOW);
             translation_stepper.setSpeedInMillimetersPerSecond(MAX_SPEED_TRANSLATION);
             rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
-            if (emergency_stop) {
-                if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Active");
-                state = DISABLED;
-            } else {
-                if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Inactive");
-                state = STARTING;
-            }
+            translation_stepper.startAsService(STEPPER_CORE);
+            rotation_stepper.startAsService(STEPPER_CORE);
+            state = DISABLED;
         }
     } else if (state == RUNNING){
         digitalWrite(ALL_GOOD_LED, HIGH);
         if (emergency_stop || (millis() - message_time > MAX_COM_DELAY) || (digitalRead(ENABLE) == LOW)) {
             if (SERIAL_ON && SERIAL_STATES && emergency_stop) Serial.println("Emergency Stop Command Active");
-            if (SERIAL_ON && SERIAL_STATES && (millis() - message_time > MAX_COM_DELAY)) Serial.println("COM timeout");
+            if (SERIAL_ON && SERIAL_STATES && ((millis() - message_time) > MAX_COM_DELAY)) Serial.println("COM timeout");
             if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
             state = DISABLING;
         }
     } else if (state == DISABLED){
         digitalWrite(ALL_GOOD_LED, LOW);
         if (emergency_stop) state = EMERGENCY_STOP;
-        else if ((millis() - message_time < MAX_COM_DELAY) && (digitalRead(ENABLE) == HIGH)) {
+        else if (digitalRead(ENABLE) == LOW) state = STOP_SWITCH;
+        else if ((millis() - message_time) < MAX_COM_DELAY) {
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Button Released and COM timeout not exceeded");
             state = STARTING;
         }
         if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
+        if (SERIAL_ON && SERIAL_STATES && ((millis() - message_time) > MAX_COM_DELAY)) {
+            Serial.print("Timeout of: ");
+            Serial.print(millis() - message_time);
+            Serial.println("ms");
+        }
     } else if (state == EMERGENCY_STOP){
         digitalWrite(ALL_GOOD_LED, LOW);
         if (!emergency_stop) {
@@ -410,8 +412,6 @@ void evaluateState(){
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Active");
             state = DISABLING;
         } else {
-            if (!translation_stepper.isStartedAsService()) translation_stepper.startAsService(STEPPER_CORE);
-            if (!rotation_stepper.isStartedAsService()) rotation_stepper.startAsService(STEPPER_CORE);
             state = RUNNING;
             if (SERIAL_ON) Serial.println("STARTED");
         }
@@ -420,8 +420,6 @@ void evaluateState(){
         if (SERIAL_ON) Serial.println("DISABLING");
         translation_stepper.emergencyStop(false);
         rotation_stepper.emergencyStop(false);
-        if (translation_stepper.isStartedAsService()) translation_stepper.stopService();
-        if (rotation_stepper.isStartedAsService()) rotation_stepper.stopService();
         if (emergency_stop) {
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Active");
             state = EMERGENCY_STOP;

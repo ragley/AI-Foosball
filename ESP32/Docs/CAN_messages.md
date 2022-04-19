@@ -16,6 +16,8 @@ The ID will only utilize the final 8-bits of the IDs 11-bits. The message data l
 | `0`       | (`00`) message from *AI*         : (`01`) Zero command             | (`00`) stop\stopped message : (`01`) **NON** stop\stopped message  | **NOT** goal rod | **NOT** 2 rod | **NOT** 5 rod | **NOT** 3 rod |
 | `1`       | (`11`) message from player poles : (`10`) message from controllers | (`11`) update goal counter  : (`10`) reset goal counter            | goal rod         | 2 rod         | 5 rod         | 3 rod         |
 
+**NOTE**: Due to the PDP using high priority messages such as `0xA`, `0xC` and `0x2`, the stop command must be sent to all rods and not individual rods. Therefore, the only valid stop command is `0xF`
+
 **DATA**: 8 bytes
 
 | **Bytes**               | **0-3**           | **4-8**       |
