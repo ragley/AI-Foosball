@@ -28,6 +28,10 @@ let serverRequest = {
 // It has the same sandbox as a Chrome extension.
 window.addEventListener("load", () => {
   let startGameBtn = document.getElementById("startGameBtn");
+  let pauseGameBtn = document.getElementById("pauseGameBtn");
+  let isGamePaused = false;
+  userAction["pause"] = 0;
+  client.write("empt"+JSON.stringify(userAction));
   let endGameBtn = document.getElementById("endGameBtn");
   
   let osuLogo = document.getElementById("osuLogo");
@@ -44,6 +48,20 @@ window.addEventListener("load", () => {
   // Event Listeners ===================================================
   startGameBtn.addEventListener("click", () => {
     difficultyModal.style.display = "block";
+  });
+  pauseGameBtn.addEventListener("click", () => {
+    if(!isGamePaused){
+      userAction["pause"] = 1;
+      client.write("empt"+JSON.stringify(userAction));
+      pauseGameBtn.innerHTML = "Resume Game";
+      isGamePaused = !isGamePaused;
+    }
+    else {
+      userAction["pause"] = 0;
+      client.write("empt"+JSON.stringify(userAction));
+      pauseGameBtn.innerHTML = "Pause Game";
+      isGamePaused = !isGamePaused;
+    }
   });
   endGameBtn.addEventListener("click", () => {
     userAction["game_flag"] = 0;
@@ -102,7 +120,7 @@ setInterval(() => {
         playerScore.innerHTML = json_data["player_score"];
       }
       if("robot_score" in json_data){
-        robotScoreinnerHTML = json_data["robot_score"];
+        robotScore.innerHTML = json_data["robot_score"];
       }
     });
   }

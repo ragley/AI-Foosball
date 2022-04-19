@@ -2669,7 +2669,7 @@ textarea.form-control.is-invalid {
   border-radius: 0.25rem;
   transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
     border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-  width: 49.5%;
+  width: 32.9%;
 }
 @media (prefers-reduced-motion: reduce) {
   .btn {
