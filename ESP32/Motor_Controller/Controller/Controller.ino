@@ -416,10 +416,14 @@ void evaluateState(){
         start_CAN(BAUD_RATE);
         state = LONG_CAN_WAIT;
     } else if (state == LONG_CAN_WAIT){
-        if ((millis() - message_time) < MAX_COM_DELAY) {
-            if (SERIAL_ON && SERIAL_STATES) Serial.println("CAN message recieved");
+        digitalWrite(ALL_GOOD_LED, LOW);
+        if (emergency_stop) state = EMERGENCY_STOP;
+        else if (digitalRead(ENABLE) == LOW) state = STOP_SWITCH;
+        else if ((millis() - message_time) < MAX_COM_DELAY) {
+            if (SERIAL_ON && SERIAL_STATES) Serial.println("COM timeout not exceeded");
             state = STARTING;
         }
+        if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
     }
 
     if (state == STARTING){
