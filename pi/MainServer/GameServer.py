@@ -11,7 +11,7 @@ game_state = GameState()
 
 def accept_wrapper(sock):
     conn, addr = sock.accept()  
-    print("accepted connection from", addr)
+    #print("accepted connection from", addr)
     conn.setblocking(False)
     data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
@@ -31,7 +31,7 @@ def service_connection(key, mask):
                 received.decode_from_receive(recv_data) 
                 data.outb = handle_message(received.data)
             else:
-                print("closing connection to", data.addr)
+                #print("closing connection to", data.addr)
                 sel.unregister(sock)
                 sock.close()
         except JSONDecodeError:
@@ -80,21 +80,16 @@ def handle_message(data):
         
     
 
-#host = "192.168.0.1" #pi ip address
-host = "127.0.0.1" #localhost ip address
+host = "192.168.0.1" #pi ip address
+#host = "127.0.0.1" #localhost ip address
 port = 5000
 
 lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 lsock.bind((host, port))
 lsock.listen()
-print("listening on", (host, port))
+#print("listening on", (host, port))
 lsock.setblocking(False)
 sel.register(lsock, selectors.EVENT_READ, data=None)
-long_handles = 1
-number_of_runs = 0
-total_time = 0.0
-total_long_time = 0.01
-max_handle = 0.0
 
 try:
     while True:
@@ -103,22 +98,7 @@ try:
             if key.data is None:
                 accept_wrapper(key.fileobj)
             else:
-                start = time.perf_counter()
                 service_connection(key, mask)
-                duration = time.perf_counter() - start
-
-                if duration * 1000 > 1:
-                    long_handles +=1
-                    total_long_time += duration
-                    if duration > max_handle:
-                        max_handle = duration
-                total_time += duration
-                number_of_runs +=1
-                # if number_of_runs % 10 == 0:
-                #     print("average time per message ", total_time / number_of_runs)
-                #     print("long handle percentage ",long_handles/number_of_runs*100,"%")
-                #     print("average long handle",total_long_time/long_handles)
-                #     print("max long handle",max_handle)
 except KeyboardInterrupt:
     print("caught keyboard interrupt, exiting")
 finally:
