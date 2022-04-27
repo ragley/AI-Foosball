@@ -130,3 +130,6 @@ The try block calls the initializeSocket twice, one socket for receiveCan and on
 This then calls initializeCan 
 Last it will create two threads so the receiveCan and sendCan will run constantly and simultaneously. 
 
+### Other Files
+Other files in this directory cantain various tests for specific functionality including message passing to the server and reading data
+
