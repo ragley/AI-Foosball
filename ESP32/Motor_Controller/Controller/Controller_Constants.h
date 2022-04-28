@@ -25,8 +25,7 @@
 const int DIRECTIONS[4][2] = {{ -1,  1}, //3 rod
   { -1,  1}, //5 rod
   { 1, -1}, //2 rod
-  { -1,  1}
-};//Goal rod
+  { -1,  1}};//Goal rod
 
 const double MAX_TRANSLATIONS[4] = {181.23, //3 rod
                                     115.265, //5 rod
@@ -42,11 +41,9 @@ const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {41.27, //3 rod
                                                     41.27,  //2 rod
                                                     41.27}; //Goal rod pulse per mm
 
-//const double MAX_SPEED_ROTATION = 89; //rotations per second
 const double MAX_SPEED_ROTATION = 20; //rotations per second
 const double MAX_SPEED_TRANSLATION = 2670; //mm per second
 const double MAX_ACCELERATION_ROTATION = 125; // rotations per second per second
-//const double MAX_ACCELERATION_ROTATION = 115; // rotations per second per second
 const double MAX_ACCELERATION_TRANSLATION = 10000; // mm per second per second
 const double HOME_SPEED_TRANSLATION = 100;
 const double HOME_SPEED_ROTATION = 1;
