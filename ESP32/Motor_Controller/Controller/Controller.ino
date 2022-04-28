@@ -6,7 +6,7 @@
 //States
 #define ZERO 0
 #define RUNNING 1
-#define SHORT_LONG_CAN_WAIT 2
+#define SHORT_CAN_WAIT 2
 #define EMERGENCY_STOP 3
 #define DISABLING 4
 #define STARTING 5
@@ -43,13 +43,8 @@ double rotation_measured = 0;
 double translation_desired = 0;
 double rotation_desired = 0;
 
-int translation_sensor = 0;
-int rotationSensor = 0;
-bool rotationSensorActive = false;
-bool translationSensorActive = false;
-
-unsigned long message_time = 0;
-double start_time = 0;
+unsigned long receive_time = 0;
+double send_time = 0;
 
 typedef union {
     float value;
@@ -88,8 +83,8 @@ void setup() {
 
     start_CAN(BAUD_RATE);
     
-    message_time = millis();
-    start_time = millis();
+    receive_time = millis();
+    send_time = millis();
     evaluateState();
 }
 
@@ -97,8 +92,8 @@ void loop() {
     evaluateState();
     CANReceiver();
     setControl();
-    if (millis() - start_time > COM_DELAY){
-        start_time = millis();
+    if (millis() - send_time > COM_DELAY){
+        send_time = millis();
         CANSender();
     }
 }
@@ -267,7 +262,7 @@ void CANSender(){
         CAN.endPacket();
         if (SERIAL_ON && SERIAL_MESSAGES) Serial.print(0b10010000 + (1 << board_ID), BIN);
     }
-    else if (state == SHORT_LONG_CAN_WAIT || state == EMERGENCY_STOP || state == STOP_SWITCH || state == ZERO) {
+    else if (state == SHORT_CAN_WAIT || state == EMERGENCY_STOP || state == STOP_SWITCH || state == ZERO) {
         CAN.beginPacket((1 << board_ID) + 0b10000000);
         for (int i = sizeof(float)-1; i >= 0; i--){
             CAN.write(translation_measured_f.bytes[i]);
@@ -288,10 +283,10 @@ void CANSender(){
     }
 }
 
-int recieved_zero = false; //The goal rod will recieve phantom zero commands and needs to be stopped
+int received_zero = false; //The goal rod will receive phantom zero commands and needs to be stopped
 void CANReceiver(){
     if (CAN.parsePacket()){
-        message_time = millis();
+        receive_time = millis();
         FLOAT_BYTE_UNION translation_desired_f;
         FLOAT_BYTE_UNION rotation_desired_f;
         if (SERIAL_ON && SERIAL_MESSAGES) {
@@ -314,14 +309,14 @@ void CANReceiver(){
         if ((CAN.packetId() & (0x1fffff00 + 0b11100000)) == 0b01000000) {
             if (SERIAL_ON) Serial.println("Zero message received");
             state = ZERO;
-            if (recieved_zero) state = LARGE_CAN_DELAY;
-            recieved_zero = true;
+            if (received_zero) state = LARGE_CAN_DELAY;
+            received_zero = true;
             evaluateState();
             return;
         }
 
         if ((CAN.packetId() & (0x1fffff00 + 0b11110000)) == 0b10000){
-            recieved_zero = false;
+            received_zero = false;
             int rotation_index = sizeof(float)-1;
             int translation_index = sizeof(float)-1;
             bool data_received = false;
@@ -355,7 +350,7 @@ void CANReceiver(){
     }
 }
 
-int last_state = 0;
+int last_state = 0; //This is only used in the top print statement to limit the state prints to only transitions
 void evaluateState(){
     if (SERIAL_ON && SERIAL_STATES && last_state != state) {
         last_state = state;
@@ -373,37 +368,37 @@ void evaluateState(){
             rotation_stepper.setSpeedInRevolutionsPerSecond(MAX_SPEED_ROTATION);
             translation_stepper.startAsService(STEPPER_CORE);
             rotation_stepper.startAsService(STEPPER_CORE);
-            message_time = millis();
-            state = SHORT_LONG_CAN_WAIT;
+            receive_time = millis();
+            state = SHORT_CAN_WAIT;
         }
     } else if (state == RUNNING){
         digitalWrite(ALL_GOOD_LED, HIGH);
-        if (emergency_stop || (millis() - message_time > MAX_COM_DELAY) || (digitalRead(ENABLE) == LOW)) {
-            if (SERIAL_ON && SERIAL_STATES && emergency_stop) Serial.println("Emergency Stop Command Active");
-            if (SERIAL_ON && SERIAL_STATES && ((millis() - message_time) > MAX_COM_DELAY)) Serial.println("COM timeout");
-            if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
+        if (emergency_stop || (millis() - receive_time > MAX_COM_DELAY) || (digitalRead(ENABLE) == LOW)) {
             state = DISABLING;
+            if (SERIAL_ON && SERIAL_STATES && emergency_stop) Serial.println("Emergency Stop Command Active");
+            if (SERIAL_ON && SERIAL_STATES && ((millis() - receive_time) > MAX_COM_DELAY)) Serial.println("COM timeout");
+            if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
         }
-    } else if (state == SHORT_LONG_CAN_WAIT){
+    } else if (state == SHORT_CAN_WAIT){
         digitalWrite(ALL_GOOD_LED, LOW);
         if (emergency_stop) state = EMERGENCY_STOP;
         else if (digitalRead(ENABLE) == LOW) state = STOP_SWITCH;
-        else if ((millis() - message_time) < MAX_COM_DELAY) {
-            if (SERIAL_ON && SERIAL_STATES) Serial.println("COM timeout not exceeded");
+        else if ((millis() - receive_time) < MAX_COM_DELAY) {
             state = STARTING;
+            if (SERIAL_ON && SERIAL_STATES) Serial.println("COM timeout not exceeded");
         }
+        if ((millis() - receive_time) > MAX_COM_DELAY*10) state = LARGE_CAN_DELAY;
         if (SERIAL_ON && SERIAL_STATES && (digitalRead(ENABLE) == LOW)) Serial.println("Emergency Stop Button Pressed");
-        if (SERIAL_ON && SERIAL_STATES && ((millis() - message_time) > MAX_COM_DELAY)) {
+        if (SERIAL_ON && SERIAL_STATES && ((millis() - receive_time) > MAX_COM_DELAY)) {
             Serial.print("Timeout of: ");
-            Serial.print(millis() - message_time);
+            Serial.print(millis() - receive_time);
             Serial.println("ms");
         }
-        if ((millis() - message_time) > MAX_COM_DELAY*10) state = LARGE_CAN_DELAY;
     } else if (state == EMERGENCY_STOP){
         digitalWrite(ALL_GOOD_LED, LOW);
         if (!emergency_stop) {
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Command Inactive");
-            state = SHORT_LONG_CAN_WAIT;
+            state = SHORT_CAN_WAIT;
         }
     } else if (state == STOP_SWITCH) {
         digitalWrite(ALL_GOOD_LED, LOW);
@@ -419,7 +414,7 @@ void evaluateState(){
         digitalWrite(ALL_GOOD_LED, LOW);
         if (emergency_stop) state = EMERGENCY_STOP;
         else if (digitalRead(ENABLE) == LOW) state = STOP_SWITCH;
-        else if ((millis() - message_time) < MAX_COM_DELAY) {
+        else if ((millis() - receive_time) < MAX_COM_DELAY) {
             if (SERIAL_ON && SERIAL_STATES) Serial.println("COM timeout not exceeded");
             state = STARTING;
         }
@@ -448,7 +443,6 @@ void evaluateState(){
         } else if(digitalRead(ENABLE) == LOW) {
             if (SERIAL_ON && SERIAL_STATES) Serial.println("Emergency Stop Button Pressed");
             state = STOP_SWITCH;
-        } else state = SHORT_LONG_CAN_WAIT;
-        if (SERIAL_ON) Serial.println("SHORT_LONG_CAN_WAIT");
+        } else state = SHORT_CAN_WAIT;
     }
 }
