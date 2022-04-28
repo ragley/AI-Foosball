@@ -93,3 +93,46 @@ dimensions measured on the table, in millimeters
 - FIVE_ROD: dimensions of the 5 rod
 - THREE_ROD: dimensions of the 3 rod
 - TABLE: dimensions of the table itself
+
+## Files 
+
+### brainFSM.py
+
+connect_to_server(): Given that the server exists on a different computer than the FSM, there is no guarantee that the server will exist when the FSM first starts. This method continually tries to connect to the server until the connection is successful, after a success the function returns the created socket.
+
+compute_intercepts(): computes the y value the ball will cross each rod given its current velocity, returns -1 if the intercept is not in the table. This function does work in theory, however given the inconcistency of the velocity values the results of this function are not very reliable and were not used in the final implementation.
+
+ball_speed(): similar to intercepts, the inconcistency of velocity values resulted in this value not being utilized as origionaly intended
+
+main(): the main function starts by defining the dictionary keys for values needed from the server and keys being sent to the server as well as arrays for current states and kick timeouts. On each loop through the program, data is requested from the server and checked to ensure it was all retreived. If server data is not returned, the rest of the program is not run and the data is requested again. It is important that the server data dictionary is not overwritten as that would compromise future requests to the server. Once running, the location of the ball is checked. If the ball location is not found but the last known location is on the table the last ball location is used and the ball is marked as hidden. Additionally, if the new ball location is not further away than the noise threshold, the last ball position is used to avoid shaking the players with small position adjustments. If a goal was scored or the ball is seen off the table the ball location is marked as not found. A gather operation is performed computing the next state and command for each of the rods. A gather operations schedules each function to be executed asynchronously, retruning an array when all have completed. The output of the gather is then used to update the saved states and fill the dictionary to be sent to the server. A check is hten made to see if any rod entered the kick state. If so, a timer is started. Otherwise the timer is set to False. The compiled commands are finally sent to the server.
+
+### rodFSM.py
+this file contains all the functions used to compute the actions of a single rod
+
+compute_next_state(): Given the data from the server returns a value for the next state of a rod. It is important to make sure that the more specific states are checked first as broad conditions will prevent the other states from being reached. Stop and Idle both have straightforward implementations. The recover states have two conditions, one for moving from the previous state and another for remaining in that state. Recovery is entered if the ball is behind the goal rod or the kick timer expires. Kick can be entered once the ball enters a region around the rod or if the rod was prepped and then the ball becomes hidden. The rod assumes it is blocking the ball from the camera and kicks anyway. Prep is entered if the ball is in a wider range from the rod and teh rod is open if the ball is behind it. If no other condition applies the rod should block.
+
+compute_command(): calls and returns the specific function for each state
+
+compute_rod_linear(): given a rod and desired Y location, this function returns the actuation distance to place a player at that location. This function will always put the same player at the same location and does not take into consideration which player is closer if two players can reach a position. If the desired Y is outside of the actuation range, the max or min actuation is returned. There are two scenarios for rods, if overlap exists between players of not. Overlap exists if the max actuation distance of the rod is further than the spacing between players. If no overlap exists, the distance past the players start location is returned by taking teh modulus of desired Y  and player spacing. The offset is subtracted from the desired Y as the players start away from the wall due to the bumpers. 
+This method does not work on rods without overlap as it assumes the location immediately past the first player at max actuation will be the second player with an actuation of 0. We need to calculate this player offset and add it to the no overlap value. 
+
+state_stop(): returns last position
+
+state_idle(): returns vertical rods at half actuation
+
+state_open(): returns horizontal rods with player at ball location
+
+state_prep(): deltaY is the additional distance to the side of the ball needed to kick at an angle towards the goal. A player is sent to the ball location plus deltaY with a backwards angle
+
+state_kick(): still outputs the location from the prep state and keeps the prep angle until it reaches the location for the kick. The angle is then set forward
+
+state_recover_1(): sets the rod upright in its current positon
+
+state_recover_2(): places the rod at a set distance on the inner side of the ball
+
+state_recover_3(): rotates the rod back
+
+state_recover_4(): moves the rod back to the ball location
+
+### Other Files
+These consist of various other test such as isolating control of linear or rotational movement.
