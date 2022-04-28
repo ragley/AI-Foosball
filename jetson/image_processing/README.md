@@ -2,11 +2,6 @@ Documentation for the Image Processing portion of the AI-Foosball Spring 2022 Se
 
 If you are reading this, and are not familiar with either _Python_ or _UNIX_ terminal commands, then I'd **highly** suggest familiarizing yourself with them.
 
-# Jetson Username and Password
-
-USERNAME: **al-foosbots** (I intended for it to be "ai-foosbots" but I fat-fingered the "l" :(.)
-PASSWORD: **foosbots**
-
 The user is a superuser so you shouldn't have any problems with permissions.
 
 # Technologies In Use and Their Purpose
