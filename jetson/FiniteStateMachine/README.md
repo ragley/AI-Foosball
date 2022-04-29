@@ -7,7 +7,7 @@ Documentation for the Server portion of AI-Foosball Spring 2022 Senior Design Pr
 This module is responsible for determining commands for each rod based on the collected data from the camera and motor controllers. This data is received via the server 
 and the resulting commands are sent back to the server in the format 
 
-`robot_(rod descriptor)_rod_(displacement/angle)_(current/command)`
+`robot_(rod descriptor)_rod_(displacement/angle)_command`
 
 rod descriptors include (goal, 2, 5, 3) denoting which rod is referenced by the number of players
 
@@ -113,8 +113,8 @@ compute_next_state(): Given the data from the server returns a value for the nex
 
 compute_command(): calls and returns the specific function for each state
 
-compute_rod_linear(): given a rod and desired Y location, this function returns the actuation distance to place a player at that location. This function will always put the same player at the same location and does not take into consideration which player is closer if two players can reach a position. If the desired Y is outside of the actuation range, the max or min actuation is returned. There are two scenarios for rods, if overlap exists between players of not. Overlap exists if the max actuation distance of the rod is further than the spacing between players. If no overlap exists, the distance past the players start location is returned by taking teh modulus of desired Y  and player spacing. The offset is subtracted from the desired Y as the players start away from the wall due to the bumpers. 
-This method does not work on rods without overlap as it assumes the location immediately past the first player at max actuation will be the second player with an actuation of 0. We need to calculate this player offset and add it to the no overlap value. 
+compute_rod_linear(): given a rod and desired Y location, this function returns the actuation distance to place a player at that location. This function will always put the same player at the same location and does not take into consideration which player is closer if two players can reach a position. If the desired Y is outside of the actuation range, the max or min actuation is returned. There are two scenarios for rods, if overlap exists between players of not. Overlap exists if the max actuation distance of the rod is further than the spacing between players. If no overlap exists, the distance past the players start location is returned by taking the modulus of desired Y  and player spacing. The offset is subtracted from the desired Y as the players start away from the wall due to the bumpers. 
+This method does not work on rods with overlap as it assumes the location of the second player at actuation 0 is the same as the first player at max actuation. We start by adjusting the actuation distance to split each of the overlapped regions in half. We then count how many players are between the desired Y and and the 0 position. For example, the 3 rod with a desired location in the middle of the field should use the second player. Player offset will be 1 as there is 1 player player between the second player and the 0 position. The assumed start postion of players is equal to half the offset multiplied by the player offset, this value is then added to the distance calculated for a no overlap rod with the adjusted actuation.
 
 state_stop(): returns last position
 
