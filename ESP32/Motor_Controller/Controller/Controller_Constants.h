@@ -20,12 +20,12 @@
 #define ROTATION 1
 #define TRANSLATION 0
 
-//Clockwise motor movement is positive
+             //Clockwise motor movement is positive
 
-const int DIRECTIONS[4][2] = {{ -1,  1}, //3 rod
-  { -1,  1}, //5 rod
-  { 1, -1}, //2 rod
-  { -1,  1}};//Goal rod
+const int    DIRECTIONS[4][2] = {{ -1,  1}, //3 rod
+                              { -1,  1}, //5 rod
+                              { 1, -1}, //2 rod
+                              { -1,  1}};//Goal rod
 
 const double MAX_TRANSLATIONS[4] = {181.23, //3 rod
                                     115.265, //5 rod
@@ -34,7 +34,7 @@ const double MAX_TRANSLATIONS[4] = {181.23, //3 rod
 
 const double DEGREES_PER_REVOLUTION = 360;
 
-const double STEP_PULSE_ROTATION_CONVERSION = 3200; //pulse per rotation (200 pulses on the motor with the driver set at 3200)
+const double STEP_PULSE_ROTATION_CONVERSION = 3200; //pulse per rotation
 
 const double STEP_PULSE_TRANSLATION_CONVERSION[4] = {41.27, //3 rod
                                                     41.27,  //5 rod
@@ -48,9 +48,9 @@ const double MAX_ACCELERATION_TRANSLATION = 10000; // mm per second per second
 const double HOME_SPEED_TRANSLATION = 100;
 const double HOME_SPEED_ROTATION = 1;
 
-const int COM_DELAY = 10; //in ms
-const int MAX_COM_DELAY = COM_DELAY * 6;
+const int    COM_DELAY = 10; //in ms
+const int    MAX_COM_DELAY = COM_DELAY * 6;
 
-const int SENSOR_DEBOUNCE = 10;
+const int    SENSOR_DEBOUNCE = 10;
 
-const int BAUD_RATE = 1000E3;
+const int    BAUD_RATE = 1000E3;
