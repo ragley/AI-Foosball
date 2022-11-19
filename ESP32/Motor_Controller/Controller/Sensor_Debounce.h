@@ -1,6 +1,6 @@
 class Sensor_Debounce {
     public:
-        Sensor_Debounce(int pin, int count, int pinMode, int pressedValue){
+        Sensor_Debounce(int pin, int count, int pin_mode, int pressedValue){
             READ = false;
             Pressed = false;
             PIN = pin;
@@ -8,7 +8,7 @@ class Sensor_Debounce {
             activeCounter = 0;
             inactiveCounter = 0;
             PressedValue = pressedValue;
-            pinMode(pin ,pinMode);
+            pinMode(pin , pin_mode);
         }
 
         bool readSensor(){
