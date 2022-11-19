@@ -1,7 +1,7 @@
 # CAN Messages
 This document contains the details of the CAN messages used in the communication between *controllers* and the *AI* in the AI Foosball project.
 
-First a brief overview of CAN. CAN (Closed Area Network) is a wire communication protocol originally designed for communication between many embedded micro controllers in the automotive industry. CAN allows for multiple devices in parallel to communicate to each other over two wires at a max speed of 1Mbps. This allows for cross communication between multiple devices without a need for a routing device and without the need for excess wires.
+First a brief overview of CAN. CAN (Controller Area Network) is a wire communication protocol originally designed for communication between many embedded micro controllers in the automotive industry. CAN allows for multiple devices in parallel to communicate to each other over two wires at a max speed of 1Mbps. This allows for cross communication between multiple devices without a need for a routing device and without the need for excess wires.
 
 CAN functions on the idea that each device talks at the same time unless a more important device talks over it. To achieve this all devices send at the same time but if a device tries to send a **1** while another device is sending a **0**, the device sending **1** stops sending and instead listens. This means that a **ID** of `0b00` has a higher priority than an **ID** of `0b10`. With this in mind, all the **IDs** have been chosen following this priority hierarchy.
 
