@@ -10,7 +10,6 @@ To run at boot:
 - All done!
 See README for additional details
 """
-from imutils.video import VideoStream
 import numpy as np
 import cv2
 import imutils # pip install --upgrade imutils
@@ -88,10 +87,8 @@ needed to find the ball.
 def processImage(undistorted_frame):
 	# define the lower and upper boundaries of the "red"
 	# ball in the HSV color space
-	ballLower0 = np.array([172, 87, 111], np.uint8)
-	ballUpper0 = np.array([180, 255, 255], np.uint8)
-	ballLower1 = np.array([0, 87, 111], np.uint8) # We use two masks because that's what works!
-	ballUpper1 = np.array([5, 255, 255], np.uint8)
+	ballLower0 = np.array([49, 35, 130], np.uint8)
+	ballUpper0 = np.array([75, 96, 255], np.uint8)
 
 	# convert the frame to the HSV color space
 	hsv = cv2.cvtColor(undistorted_frame, cv2.COLOR_BGR2HSV)
@@ -99,9 +96,7 @@ def processImage(undistorted_frame):
 	# construct a mask for the color "red", then perform
 	# a series of dilations and erosions to remove any small
 	# blobs left in the mask
-	mask0 = cv2.inRange(hsv, ballLower0, ballUpper0)
-	mask1 = cv2.inRange(hsv, ballLower1, ballUpper1)
-	mask = mask0 | mask1
+	mask = cv2.inRange(hsv, ballLower0, ballUpper0)
 	mask = cv2.erode(mask, None, iterations=2)
 	mask = cv2.dilate(mask, None, iterations=2)
 	return mask
@@ -123,8 +118,7 @@ def ballTracking():
 
 	# if a video path was not supplied, grab the reference
 	# to the webcam
-	vs = VideoStream(0)
-	vs.start()
+	vs = cv2.VideoCapture(0)
 
 	# otherwise, grab a reference to the video file
 	# allow the camera or video file to "warm up"
@@ -207,7 +201,7 @@ def ballTracking():
 		# 	break
 		
 	# stop camera
-	vs.stop()
+	vs.release()
 
 SOCKET = connectToServer()
 ballTracking()
