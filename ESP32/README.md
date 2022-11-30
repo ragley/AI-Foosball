@@ -7,7 +7,7 @@ Download the Arduino IDE by clicking [here](https://www.arduino.cc/en/software).
 Once the installer is downloaded, launch it and follow the prompts for instillation. Open application once it is installed.
 
 ## Install Board
-First thing to do is add the **ESP32 Dev Module** to your boards. To do this, go to `file > preferences` then add the URLs:`https://dl.espressif.com/dl/package_esp32_index.json,  https://arduino.esp8266.com/stable/package_esp8266com_index.json` to the field for `Additional Board Manager URLs`. Press OK. Then click on `Tools->Board->Boards Manager`. Then search for **esp32** in the *Filter your search* bar. **esp32** by **Espressif Systems** should appear. Select the newest version and click the install button. Then go back to `Tools->Board->ESP32 Arduino` and select the **ESP32 Dev Module**.
+First thing to do is add the **ESP32 Dev Module** to your boards. To do this, first click `File->Preferences` then enter the URL:`https://dl.espressif.com/dl/package_esp32_index.json,  https://arduino.esp8266.com/stable/package_esp8266com_index.json` into the box labeled: Additional Boards Manager URLs`. Click OK. Next click on `Tools->Board->Boards Manager`. Then search for **esp32** in the *Filter your search* bar. **esp32** by **Espressif Systems** should appear. Select the newest version and click the install button. Then go back to `Tools->Board->ESP32 Arduino` and select the **ESP32 Dev Module**.
 
 The essential settings under Tools should be:
 - Board: "ESP32 Dev Module"
