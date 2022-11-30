@@ -183,7 +183,7 @@ def ballTracking():
 					# cv2.circle(undistorted_frame, (int(x), int(x)), int(radius),(0, 255, 255), 3)
 				 	# cv2.circle(undistorted_frame, (int(x), int(y)), 3, (255, 0, 255), -1)
 			else:
-				# send negative location if ball cannot be found.				
+				# send negative location if ball cannot be found				
 				sendDataToServer(-1, -1, 0, 0)
 		except (ZeroDivisonError):
 			# to avoid crashing on divideByZero error
