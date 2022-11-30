@@ -44,7 +44,7 @@ const int    DIRECTIONS[4][2] = {{ -1,  -1}, //3 rod
 const double MAX_TRANSLATIONS[4] = {181.23, //3 rod
                                     115.265, //5 rod
                                     356,    //2 rod
-                                    115.265}; //Goal rod
+                                    181.23}; //Goal rod
 //
                                    
 const double DEGREES_PER_REVOLUTION = 360;
