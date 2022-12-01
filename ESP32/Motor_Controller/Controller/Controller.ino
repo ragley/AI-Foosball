@@ -118,7 +118,7 @@ bool zero(){
     if (SERIAL_ON) Serial.print("Zeroing Translation");
     bool success_translation = zeroTranslation();
     if (!success_translation) {
-        if (SERIAL_ON && digitalRead(ENABLE) == LOW) Serial.println(" Failed Due To Disable Button");
+        if (SERIAL_ON && digitalRead(ENABLE) == LOW) Serial.println(" Failed due to ENABLE being low | 0");
         else if (SERIAL_ON) Serial.println(" Failed");
         return success_translation;
     }
@@ -128,7 +128,7 @@ bool zero(){
     }
     bool success_rotation = zeroRotation();
     if (!success_rotation) {
-        if (SERIAL_ON && digitalRead(ENABLE) == LOW) Serial.println(" Failed Due To Disable Button");
+        if (SERIAL_ON && digitalRead(ENABLE) == LOW) Serial.println(" Failed due to ENABLE being low | 0");
         else if (SERIAL_ON) Serial.println(" Failed");
         return success_rotation;
     }
@@ -160,6 +160,7 @@ bool zeroRotation(){
 
         if (digitalRead(ENABLE) == LOW) {
             rotation_stepper.emergencyStop(false);
+            Serial.print(" Failed due to ENABLE being low | 1");
             return false;
         }
     }
@@ -177,6 +178,7 @@ bool zeroRotation(){
 
         if (digitalRead(ENABLE) == LOW) {
             rotation_stepper.emergencyStop(false);
+            Serial.print(" Failed due to ENABLE being low | 2");
             return false;
         }
     }
@@ -185,6 +187,7 @@ bool zeroRotation(){
         return true;
     } else {
         rotation_stepper.emergencyStop();
+        Serial.print(" Failed due to rotational_zero.sensorActive() being false | 0");
         return false;
     }
     
@@ -211,6 +214,7 @@ bool zeroTranslation(){
 
         if (digitalRead(ENABLE) == LOW) {
             translation_stepper.emergencyStop(false);
+            Serial.print(" Failed due to ENABLE being low | 3");
             return false;
         }
 
@@ -223,6 +227,7 @@ bool zeroTranslation(){
         return true;
     } else {
         translation_stepper.emergencyStop(false);
+        Serial.print("Failed due to translational_zero.sensorActive() being false | 0");
         return false;
     }
 }
