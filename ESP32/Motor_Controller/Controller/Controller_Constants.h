@@ -20,8 +20,6 @@
 #define ROTATION 1
 #define TRANSLATION 0
 
-             //Clockwise motor movement is positive
-
 // Spring 2022
 /*
 const int    DIRECTIONS[4][2] = {{ -1,  1}, //3 rod
@@ -35,11 +33,12 @@ const double MAX_TRANSLATIONS[4] = {181.23, //3 rod
                                     228.77}; //Goal rod
 */
 
+// When motor is pointing away from you, positive 1 is clockwise
 //Fall 2022
-const int    DIRECTIONS[4][2] = {{ -1,  -1}, //3 rod
-                              { -1,  -1}, //5 rod
-                              { 1, -1}, //2 rod
-                              { 1,  -1}};//Goal rod
+const int    DIRECTIONS[4][2] = {{ 1,  1}, //3 rod
+                              { 1,  1}, //5 rod
+                              { -1, 1}, //2 rod
+                              { -1,  1}};//Goal rod
 
 const double MAX_TRANSLATIONS[4] = {181.23, //3 rod
                                     115.265, //5 rod
