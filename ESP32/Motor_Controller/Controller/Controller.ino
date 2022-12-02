@@ -82,7 +82,7 @@ void setup() {
     rotation_stepper.setDecelerationInRevolutionsPerSecondPerSecond(MAX_ACCELERATION_ROTATION);
 
     start_CAN(BAUD_RATE);
-    
+    delay(3000);
     receive_time = millis();
     send_time = millis();
     evaluateState();
@@ -355,10 +355,10 @@ void CANReceiver(){
     }
 }
 
-int last_state = 0; //This is only used in the top print statement to limit the state prints to only transitions
+//int last_state = 0; //This is only used in the top print statement to limit the state prints to only transitions
 void evaluateState(){
-    if (SERIAL_ON && SERIAL_STATES && last_state != state) {
-        last_state = state;
+    if (SERIAL_ON && SERIAL_STATES) {
+        //last_state = state;
         Serial.print("State: ");
         Serial.println(state);
     }
