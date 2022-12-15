@@ -23,9 +23,15 @@ TABLE_WIDTH = 694.2
 
 # camera fisheye calibration arrays
 # These are camara specific! Use fisheye_calibration.py to find these numbers!
-DIM = (640, 360) # dimensions of the camera (in pixels)
-K = np.array([[529.0990431685142, 0.0, 308.01283344567565], [0.0, 527.5594266286947, 168.13007918363098], [0.0, 0.0, 1.0]])
-D = np.array([[-0.11376404127315753], [-0.46295061178792457], [2.167920495942993], [-2.8734014030396717]])
+# 2022 Spring Semester Values
+#DIM = (640, 360) # dimensions of the camera (in pixels)
+#K = np.array([[529.0990431685142, 0.0, 308.01283344567565], [0.0, 527.5594266286947, 168.13007918363098], [0.0, 0.0, 1.0]])
+#D = np.array([[-0.11376404127315753], [-0.46295061178792457], [2.167920495942993], [-2.8734014030396717]])
+
+# 2022 Fall Semester Values
+DIM=(640, 360)
+K=np.array([[516.9667249303477, 0.0, 307.9943648399857], [0.0, 519.3406896685824, 188.1687065248028], [0.0, 0.0, 1.0]])
+D=np.array([[-0.20807014362993204], [3.8321350961670624], [-45.441466395954556], [166.11598285674214]])
 
 # Constants for sending data to the server!
 HOST = "192.168.0.1" # static address of the pi
