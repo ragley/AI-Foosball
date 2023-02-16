@@ -9,7 +9,7 @@ week 1 and 2 were mainly research and PDR prep.
     - **TODO** next steps
 
 newest changes are first
-last updated: 2/14/2023
+last updated: 2/16/2023
 
 ---
 
@@ -19,13 +19,23 @@ last updated: 2/14/2023
 Troubleshooting part 2 the electric boogaloo
 
 ### Actions
-- ask lol 
+- measured bridge restances
+- measures board resistances
+- replaced board 0 CAN reciever with new to see if CAN reciever model had gone bad
+- used oscolosope to measure 
+- cut open the board 3 bridge. 2 120 ohm (-+ 1 %)
+    - no wire lol just a ristor heat strink wrapped 
 
 ### Issues
 
-- board 0 (first 1, not CAN reciever board) bridge is bad
+- board 0 (first 1, not CAN reciever board) bridge is bad <br>
     - has 5V straight to ardinuo (max is 3.3V) 
     - rotational switch doesnt change the voltage as it should
+- board 3 also has 5V to ardinuno (?? i think)
+    - thus bridge not worky
+- board 3 resistance values extremely high
+    - normal, 80 ohms. read as >400 ohms (i think)
+
 
 ### TODO
 
@@ -36,7 +46,7 @@ Troubleshooting part 2 the electric boogaloo
 
 ## week 4
 
-troubleshooting CAN <br>
+troubleshooting CAN
 
 ### Actions
 
