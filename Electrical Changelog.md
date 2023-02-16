@@ -19,16 +19,16 @@ last updated: 2/16/2023
 Troubleshooting part 2 the electric boogaloo
 
 ### Actions
-- measured bridge restances
+- measured bridge resistances
 - measures board resistances
-- replaced board 0 CAN reciever with new to see if CAN reciever model had gone bad
-- used oscolosope to measure 
+- replaced board 0 CAN receiver with new to see if CAN receiver model had gone bad
+- used oscilloscope to measure 
 - cut open the board 3 bridge. 2 120 ohm (-+ 1 %)
-    - no wire lol just a ristor heat strink wrapped 
+    - no wire lol just a resistor heat shrink wrapped 
 
 ### Issues
 
-- board 0 (first 1, not CAN reciever board) bridge is bad <br>
+- board 0 (first 1, not CAN receiver board) bridge is bad <br>
     - has 5V straight to ardinuo (max is 3.3V) 
     - rotational switch doesnt change the voltage as it should
 - board 3 also has 5V to ardinuno (?? i think)
@@ -50,9 +50,9 @@ troubleshooting CAN
 
 ### Actions
 
-- resoldered bad connecctions on board 3
+- resoldered bad connections on board 3
 - LOW CAN value measures as 1.6V (ish). HIGH CAN value okay
-- PCB redisign in KiCAD
+- PCB redesign in KiCAD
 
 ### Issues
 
@@ -68,11 +68,11 @@ troubleshooting CAN
 
 ## week 3
 
-Troubleshootung CAN system
+Troubleshooting CAN system
 
 ### Actions
 
-- read serial output from motor contoller PCBS
+- read serial output from motor controller PCBS
 
 ### Issues
 
