@@ -134,6 +134,8 @@ def ballTracking():
 	# important variables for velocity calculations
 	previous_x = 0
 	previous_y = 0
+	previous_Vx = 0 # new
+	previous_Vy = 0 # new
 	previous_time = 0
 	frame_delay = 0
 
@@ -168,8 +170,8 @@ def ballTracking():
 					if abs(real_x-previous_x) >= 3 or abs(real_y-previous_y) > 3 :
 						(Vx, Vy) = calculateVelocity(real_x, real_y, previous_x, previous_y, current_time, previous_time)
 					else:
-						Vx = 0.0
-						Vy = 0.0
+						Vx = previous_Vx # was 0.0
+						Vy = previous_Vy # was 0.0
 					sendDataToServer(real_x, real_y, Vx, Vy) # send the data to the server			
 
 				# report the ball location to the terminal
@@ -180,7 +182,9 @@ def ballTracking():
 				# update previous x, y, time variables
 				previous_x = real_x
 				previous_y = real_y
-				previous_time = current_time
+				previous_Vx = Vx #new
+				previous_Vy = Vy #new
+ 				previous_time = current_time
 				frame_delay = frame_delay + 1
 
 				# draw a dot on the ball, only proceed if the radius meets a minimum size
@@ -189,8 +193,9 @@ def ballTracking():
 					# cv2.circle(undistorted_frame, (int(x), int(x)), int(radius),(0, 255, 255), 3)
 				 	# cv2.circle(undistorted_frame, (int(x), int(y)), 3, (255, 0, 255), -1)
 			else:
-				# send negative location if ball cannot be found				
-				sendDataToServer(-1, -1, 0, 0)
+				# send negative location if ball cannot be found	
+				# for FSM: sendDataToServer(-1, -1, 0, 0)			
+				sendDataToServer(previous_x, previous_y, previous_Vx, previous_Vy)
 		except (ZeroDivisonError):
 			# to avoid crashing on divideByZero error
 			continue
